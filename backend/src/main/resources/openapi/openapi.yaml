@@ -1,0 +1,457 @@
+openapi: 3.0.3
+info:
+  title: Utang API
+  description: >
+    MVP API for tracking customer utang (debt), recording payments, generating
+    copyable reminders, and accepting PayMongo payments. Ledger-first design.
+  version: 0.0.1
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Auth
+  - name: Customers
+  - name: Ledger
+  - name: Reminders
+  - name: Payments
+  - name: Public
+  - name: Webhooks
+
+paths:
+  /auth/request-otp:
+    post:
+      tags: [Auth]
+      summary: Request an OTP for a phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestOtpRequest'
+      responses:
+        '200':
+          description: OTP generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestOtpResponse'
+
+  /auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify OTP and obtain a session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpRequest'
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /me:
+    get:
+      tags: [Auth]
+      summary: Current store
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreResponse'
+
+  /customers:
+    post:
+      tags: [Customers]
+      summary: Add a customer (suki)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerRequest'
+      responses:
+        '200':
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+    get:
+      tags: [Customers]
+      summary: List customers
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerResponse'
+
+  /customers/{id}:
+    get:
+      tags: [Customers]
+      summary: Get a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /ledger/debit:
+    post:
+      tags: [Ledger]
+      summary: Add utang (DEBIT)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LedgerMutationRequest'
+      responses:
+        '200':
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+
+  /ledger/credit:
+    post:
+      tags: [Ledger]
+      summary: Record bayad (CREDIT) — e.g. cash payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LedgerMutationRequest'
+      responses:
+        '200':
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+
+  /customers/{id}/ledger:
+    get:
+      tags: [Ledger]
+      summary: Ledger history for a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Ledger
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerResponse'
+
+  /customers/{id}/reminder-preview:
+    get:
+      tags: [Reminders]
+      summary: Preview a reminder message
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReminderPreviewResponse'
+
+  /customers/{id}/remind:
+    post:
+      tags: [Reminders]
+      summary: Log a reminder (copy). Max 1 per customer per day.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Reminder logged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemindResponse'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /payments/link:
+    post:
+      tags: [Payments]
+      summary: Create a PayMongo payment link
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentLinkRequest'
+      responses:
+        '200':
+          description: Payment link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentLinkResponse'
+
+  /public/pay/{token}:
+    get:
+      tags: [Public]
+      summary: Public payment page data (no auth)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public pay info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicPayResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /webhooks/paymongo:
+    post:
+      tags: [Webhooks]
+      summary: PayMongo webhook receiver (idempotent)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Processed
+        '401':
+          $ref: '#/components/responses/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    CustomerId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    RequestOtpRequest:
+      type: object
+      required: [phoneNumber]
+      properties:
+        phoneNumber:
+          type: string
+          example: "09171234567"
+    RequestOtpResponse:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+        devCode:
+          type: string
+          description: Dev-only echoed OTP (no SMS gateway in MVP)
+        message:
+          type: string
+    VerifyOtpRequest:
+      type: object
+      required: [phoneNumber, code]
+      properties:
+        phoneNumber:
+          type: string
+        code:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        store:
+          $ref: '#/components/schemas/StoreResponse'
+    StoreResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        phoneNumber:
+          type: string
+        name:
+          type: string
+    CreateCustomerRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        phoneNumber:
+          type: string
+          nullable: true
+    CustomerResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        phoneNumber:
+          type: string
+          nullable: true
+        currentBalance:
+          type: number
+        payToken:
+          type: string
+    LedgerMutationRequest:
+      type: object
+      required: [customerId, amount]
+      properties:
+        customerId:
+          type: integer
+          format: int64
+        amount:
+          type: number
+        note:
+          type: string
+          nullable: true
+    LedgerEntryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          type: string
+          enum: [DEBIT, CREDIT]
+        amount:
+          type: number
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    LedgerResponse:
+      type: object
+      properties:
+        customerId:
+          type: integer
+          format: int64
+        currentBalance:
+          type: number
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LedgerEntryResponse'
+    ReminderPreviewResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        canSendToday:
+          type: boolean
+    RemindResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        sent:
+          type: boolean
+    CreatePaymentLinkRequest:
+      type: object
+      required: [customerId, amount]
+      properties:
+        customerId:
+          type: integer
+          format: int64
+        amount:
+          type: number
+    PaymentLinkResponse:
+      type: object
+      properties:
+        referenceId:
+          type: string
+        amount:
+          type: number
+        checkoutUrl:
+          type: string
+    PublicPayResponse:
+      type: object
+      properties:
+        storeName:
+          type: string
+        customerName:
+          type: string
+        outstandingBalance:
+          type: number
+        checkoutUrl:
+          type: string
+          nullable: true
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
