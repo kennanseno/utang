@@ -25,22 +25,16 @@ utang/
 
 ## Quick start
 
-### 1. Start PostgreSQL
+### Option A — No Docker, no Postgres (fastest)
 
-```bash
-docker compose up -d
-```
-
-### 2. Run the backend
+Run the backend on an in-memory H2 database using the `dev` profile:
 
 ```bash
 cd backend
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-API runs on `http://localhost:8080`. OpenAPI spec lives at [backend/src/main/resources/openapi/openapi.yaml](backend/src/main/resources/openapi/openapi.yaml).
-
-### 3. Run the frontend
+Then start the frontend:
 
 ```bash
 cd frontend
@@ -49,7 +43,35 @@ npm install
 npm run dev
 ```
 
-App runs on `http://localhost:3000`.
+The API runs on `http://localhost:8080` and the app on `http://localhost:3000`.
+Data resets on each restart. Browse the dev DB at `http://localhost:8080/h2-console`
+(JDBC URL `jdbc:h2:mem:utang`, user `sa`, no password). PayMongo runs in mock mode
+until you set `PAYMONGO_SECRET_KEY`.
+
+### Option B — PostgreSQL
+
+Use a real Postgres (Flyway migrations run on startup). Start it either with Docker
+or a local install:
+
+```bash
+# With Docker:
+docker compose up -d
+
+# Or Homebrew (no Docker):
+brew install postgresql@16
+brew services start postgresql@16
+createuser -s utang 2>/dev/null; createdb -O utang utang
+psql -d utang -c "ALTER USER utang WITH PASSWORD 'utang';"
+```
+
+Then run the backend (default profile connects to Postgres on `localhost:5432`):
+
+```bash
+cd backend
+./mvnw spring-boot:run
+```
+
+OpenAPI spec lives at [backend/src/main/resources/openapi/openapi.yaml](backend/src/main/resources/openapi/openapi.yaml).
 
 ## Core domain
 

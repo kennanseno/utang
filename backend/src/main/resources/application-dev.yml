@@ -1,0 +1,19 @@
+# Dev profile: run with NO Docker and NO PostgreSQL.
+# In-memory H2 database; schema is generated from JPA entities (Flyway disabled).
+# Data is reset on every restart. Activate with: --spring.profiles.active=dev
+spring:
+  datasource:
+    url: jdbc:h2:mem:utang;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  h2:
+    console:
+      # Browse the dev database at http://localhost:8080/h2-console
+      # (JDBC URL: jdbc:h2:mem:utang, user: sa, no password)
+      enabled: true
