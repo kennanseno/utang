@@ -30,7 +30,7 @@ class LedgerAndReminderTest {
     @Test
     void scenario1_addUtang_balanceIsHundred() {
         Store store = newStore();
-        Customer customer = customerService.create(store.getId(), "Juan", null);
+        Customer customer = customerService.create(store.getId(), "Juan", "09170000001");
 
         BigDecimal balance = ledgerService.applyEntry(
                 customer.getId(), EntryType.DEBIT, new BigDecimal("100.00"), "sardinas");
@@ -41,7 +41,7 @@ class LedgerAndReminderTest {
     @Test
     void scenario2_utangThenCash_balanceIsFifty() {
         Store store = newStore();
-        Customer customer = customerService.create(store.getId(), "Pedro", null);
+        Customer customer = customerService.create(store.getId(), "Pedro", "09170000002");
 
         ledgerService.applyEntry(customer.getId(), EntryType.DEBIT, new BigDecimal("100.00"), null);
         BigDecimal balance = ledgerService.applyEntry(

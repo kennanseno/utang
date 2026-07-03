@@ -4,7 +4,6 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 const TOKEN_KEY = "utang.token";
-const DEVICE_KEY = "utang.device";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -21,31 +20,15 @@ export function clearToken(): void {
   window.localStorage.removeItem(TOKEN_KEY);
 }
 
-/**
- * Stable per-browser device identifier. Trusted devices skip the OTP step on
- * login; a new browser/device must verify by OTP the first time.
- */
-export function getDeviceId(): string {
-  if (typeof window === "undefined") return "";
-  let id = window.localStorage.getItem(DEVICE_KEY);
-  if (!id) {
-    id =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `dev-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    window.localStorage.setItem(DEVICE_KEY, id);
-  }
-  return id;
-}
-
 export interface Store {
   id: number;
   username: string | null;
   phoneNumber: string;
+  email: string | null;
   name: string;
   ownerName: string | null;
   onboarded: boolean;
-  phoneVerified: boolean;
+  emailVerified: boolean;
   hasQrCode: boolean;
 }
 
@@ -54,12 +37,8 @@ export interface AuthResult {
   store: Store;
 }
 
-export type LoginResult =
-  | { status: "AUTHENTICATED"; token: string; store: Store }
-  | { status: "OTP_REQUIRED"; phoneNumber: string; devCode: string | null };
-
-export interface PhoneVerification {
-  phoneNumber: string;
+export interface EmailVerification {
+  email: string;
   devCode: string | null;
 }
 
@@ -83,6 +62,10 @@ export interface Ledger {
   customerId: number;
   currentBalance: number;
   entries: LedgerEntry[];
+  page: number;
+  size: number;
+  totalEntries: number;
+  hasMore: boolean;
 }
 
 export interface ReminderPreview {
@@ -96,6 +79,10 @@ export interface PublicPay {
   outstandingBalance: number;
   storeHasQrCode: boolean;
   history: PublicLedgerEntry[];
+  page: number;
+  size: number;
+  totalHistory: number;
+  hasMore: boolean;
 }
 
 export interface PublicLedgerEntry {
@@ -112,7 +99,6 @@ async function request<T>(
 ): Promise<T> {
   const isForm = options.body instanceof FormData;
   const headers: Record<string, string> = {
-    "X-Device-Id": getDeviceId(),
     // Let the browser set the multipart boundary for FormData bodies.
     ...(isForm ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string> | undefined),
@@ -142,6 +128,7 @@ export const api = {
     username: string;
     password: string;
     phoneNumber: string;
+    email: string;
     storeName: string;
     ownerName?: string;
   }) =>
@@ -153,6 +140,7 @@ export const api = {
           username: input.username,
           password: input.password,
           phoneNumber: input.phoneNumber,
+          email: input.email,
           storeName: input.storeName,
           ownerName: input.ownerName || null,
         }),
@@ -161,36 +149,35 @@ export const api = {
     ),
 
   login: (username: string, password: string) =>
-    request<LoginResult>(
+    request<AuthResult>(
       "/auth/login",
       { method: "POST", body: JSON.stringify({ username, password }) },
       false
     ),
 
-  verifyDevice: (username: string, code: string) =>
-    request<AuthResult>(
-      "/auth/verify-device",
-      { method: "POST", body: JSON.stringify({ username, code }) },
-      false
-    ),
-
-  updateStore: (storeName: string, ownerName: string | undefined, phoneNumber: string) =>
+  updateStore: (
+    storeName: string,
+    ownerName: string | undefined,
+    phoneNumber: string,
+    email: string
+  ) =>
     request<Store>("/store", {
       method: "PUT",
       body: JSON.stringify({
         storeName,
         ownerName: ownerName || null,
         phoneNumber,
+        email,
       }),
     }),
 
-  requestPhoneVerification: () =>
-    request<PhoneVerification>("/store/phone/verify/request", {
+  requestEmailVerification: () =>
+    request<EmailVerification>("/store/email/verify/request", {
       method: "POST",
     }),
 
-  confirmPhoneVerification: (code: string) =>
-    request<Store>("/store/phone/verify/confirm", {
+  confirmEmailVerification: (code: string) =>
+    request<Store>("/store/email/verify/confirm", {
       method: "POST",
       body: JSON.stringify({ code }),
     }),
@@ -233,14 +220,20 @@ export const api = {
       body: JSON.stringify({ customerId, amount, note: note || null }),
     }),
 
-  getLedger: (customerId: number) =>
-    request<Ledger>(`/customers/${customerId}/ledger`),
+  getLedger: (customerId: number, page = 0, size = 20) =>
+    request<Ledger>(
+      `/customers/${customerId}/ledger?page=${page}&size=${size}`
+    ),
 
   reminderPreview: (customerId: number) =>
     request<ReminderPreview>(`/customers/${customerId}/reminder-preview`),
 
-  publicPay: (token: string) =>
-    request<PublicPay>(`/public/pay/${token}`, {}, false),
+  publicPay: (token: string, page = 0, size = 20) =>
+    request<PublicPay>(
+      `/public/pay/${token}?page=${page}&size=${size}`,
+      {},
+      false
+    ),
 };
 
 export function formatPeso(amount: number): string {
@@ -256,7 +249,7 @@ export function formatPeso(amount: number): string {
  * Callers should URL.revokeObjectURL the result when done.
  */
 export async function fetchQrCodeUrl(): Promise<string | null> {
-  const headers: Record<string, string> = { "X-Device-Id": getDeviceId() };
+  const headers: Record<string, string> = {};
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${API_BASE_URL}/store/qr`, { headers });

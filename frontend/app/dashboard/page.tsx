@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { api, clearToken, formatPeso, getToken, Customer } from "@/lib/api";
 import { Logo } from "../Logo";
 
+const CUSTOMER_PAGE_SIZE = 10;
+
 export default function DashboardPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [storeName, setStoreName] = useState<string>("");
-  const [phoneVerified, setPhoneVerified] = useState(true);
+  const [emailVerified, setEmailVerified] = useState(true);
   const [hasQrCode, setHasQrCode] = useState(true);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -18,6 +20,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
+  const [visibleCount, setVisibleCount] = useState(CUSTOMER_PAGE_SIZE);
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   useEffect(() => {
@@ -34,7 +37,7 @@ export default function DashboardPage() {
     try {
       const [me, list] = await Promise.all([api.me(), api.listCustomers()]);
       setStoreName(me.name);
-      setPhoneVerified(me.phoneVerified);
+      setEmailVerified(me.emailVerified);
       setHasQrCode(me.hasQrCode);
       setCustomers(list);
     } catch (e) {
@@ -78,6 +81,8 @@ export default function DashboardPage() {
   )
     .slice()
     .sort((a, b) => b.currentBalance - a.currentBalance);
+
+  const pagedCustomers = visibleCustomers.slice(0, visibleCount);
 
   return (
     <>
@@ -123,13 +128,12 @@ export default function DashboardPage() {
           {formatPeso(totalOwed)}
         </div>
       </div>
-      {!loading && !phoneVerified && (
+      {!loading && !emailVerified && (
         <div className="notice">
-          <strong>Verify your mobile number</strong>
+          <strong>Verify your email address</strong>
           <p style={{ margin: "6px 0 10px" }} className="muted">
-            Some features are disabled until you verify your number. You
-            won&apos;t be able to send SMS reminders to your suki or receive
-            login and OTP codes on a new device.
+            Verify your email to secure your account and help you recover access
+            if you ever forget your password.
           </p>
           <Link className="link" href="/settings">
             Verify now in Store details →
@@ -184,7 +188,10 @@ export default function DashboardPage() {
           type="search"
           placeholder="Search suki by name…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setVisibleCount(CUSTOMER_PAGE_SIZE);
+          }}
           style={{ marginTop: 8 }}
         />
       )}
@@ -194,7 +201,7 @@ export default function DashboardPage() {
         </p>
       )}
       <div style={{ marginTop: 8 }}>
-        {visibleCustomers.map((c) => (
+        {pagedCustomers.map((c) => (
           <Link key={c.id} href={`/customers/${c.id}`} className="list-item">
             <div>
               <div className="name">{c.name}</div>
@@ -206,6 +213,17 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
+      {visibleCustomers.length > visibleCount && (
+        <button
+          className="secondary"
+          onClick={() =>
+            setVisibleCount((n) => n + CUSTOMER_PAGE_SIZE)
+          }
+          style={{ marginTop: 8 }}
+        >
+          Load more ({visibleCustomers.length - visibleCount} more)
+        </button>
+      )}
 
       {error && <p className="error">{error}</p>}
     </>

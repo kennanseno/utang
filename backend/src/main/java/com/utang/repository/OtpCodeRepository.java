@@ -7,10 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OtpCodeRepository extends JpaRepository<OtpCode, Long> {
 
-    Optional<OtpCode> findFirstByPhoneNumberAndCodeAndConsumedFalseAndExpiresAtAfterOrderByIdDesc(
-            String phoneNumber, String code, Instant now);
+    Optional<OtpCode> findFirstByEmailAndCodeAndConsumedFalseAndExpiresAtAfterOrderByIdDesc(
+            String email, String code, Instant now);
 
-    boolean existsByPhoneNumberAndCreatedAtAfter(String phoneNumber, Instant threshold);
+    boolean existsByEmailAndCreatedAtAfter(String email, Instant threshold);
 
-    long countByPhoneNumberAndCreatedAtAfter(String phoneNumber, Instant threshold);
+    long countByEmailAndCreatedAtAfter(String email, Instant threshold);
 }

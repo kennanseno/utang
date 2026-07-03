@@ -7,6 +7,7 @@ import { api, getToken, setToken } from "@/lib/api";
 import { Logo } from "../Logo";
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const QR_MAX_BYTES = 2 * 1024 * 1024;
 const QR_ACCEPTED = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
@@ -14,6 +15,7 @@ interface FieldErrors {
   storeName?: string;
   username?: string;
   password?: string;
+  email?: string;
   phone?: string;
 }
 
@@ -21,6 +23,7 @@ function validate(values: {
   storeName: string;
   username: string;
   password: string;
+  email: string;
   phone: string;
 }): FieldErrors {
   const errors: FieldErrors = {};
@@ -44,6 +47,13 @@ function validate(values: {
     errors.password = "Password must be at least 6 characters.";
   }
 
+  const email = values.email.trim();
+  if (!email) {
+    errors.email = "Email is required.";
+  } else if (!EMAIL_PATTERN.test(email)) {
+    errors.email = "Enter a valid email address.";
+  }
+
   const phone = values.phone.trim();
   if (!phone) {
     errors.phone = "Mobile number is required.";
@@ -60,6 +70,7 @@ export default function RegisterPage() {
   const [ownerName, setOwnerName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [qrPreview, setQrPreview] = useState<string | null>(null);
@@ -113,16 +124,16 @@ export default function RegisterPage() {
   // as they fix each field.
   useEffect(() => {
     if (submitted) {
-      setFieldErrors(validate({ storeName, username, password, phone }));
+      setFieldErrors(validate({ storeName, username, password, email, phone }));
       // Clear the server-side "already in use" message once the owner edits
       // any field, so a stale error doesn't linger.
       setError(null);
     }
-  }, [submitted, storeName, username, password, phone]);
+  }, [submitted, storeName, username, password, email, phone]);
 
   async function handleSubmit() {
     setSubmitted(true);
-    const errors = validate({ storeName, username, password, phone });
+    const errors = validate({ storeName, username, password, email, phone });
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
       setError(null);
@@ -136,6 +147,7 @@ export default function RegisterPage() {
         username: username.trim(),
         password,
         phoneNumber: phone.trim(),
+        email: email.trim(),
         storeName: storeName.trim(),
         ownerName: ownerName.trim() || undefined,
       });
@@ -226,6 +238,25 @@ export default function RegisterPage() {
           <p className="error field-error">{fieldErrors.password}</p>
         )}
 
+        <label htmlFor="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          value={email}
+          aria-invalid={!!fieldErrors.email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        {fieldErrors.email ? (
+          <p className="error field-error">{fieldErrors.email}</p>
+        ) : (
+          <p className="muted" style={{ marginTop: 6 }}>
+            Verify this later in Store details to secure your account.
+          </p>
+        )}
+
         <label htmlFor="phone">Mobile number</label>
         <input
           id="phone"
@@ -240,7 +271,7 @@ export default function RegisterPage() {
           <p className="error field-error">{fieldErrors.phone}</p>
         ) : (
           <p className="muted" style={{ marginTop: 6 }}>
-            We&apos;ll text this number a code when you log in from a new device.
+            Shown to your suki so they can reach you about their utang.
           </p>
         )}
 

@@ -3,14 +3,12 @@ package com.utang.service;
 import com.utang.config.AppProperties;
 import com.utang.domain.OtpCode;
 import com.utang.domain.Store;
-import com.utang.domain.TrustedDevice;
+import com.utang.email.EmailSender;
 import com.utang.error.ConflictException;
 import com.utang.error.TooManyRequestsException;
 import com.utang.error.UnauthorizedException;
 import com.utang.repository.OtpCodeRepository;
 import com.utang.repository.StoreRepository;
-import com.utang.repository.TrustedDeviceRepository;
-import com.utang.sms.SmsSender;
 import com.utang.support.PhoneNumbers;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -22,10 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Store owner authentication.
  *
- * <p>Owners register with a username, password and mobile number. Login uses
- * username + password. Logging in from an unrecognized device additionally
- * requires an OTP sent to the owner's mobile number; once verified, the device
- * is trusted and future logins from it skip the OTP step.
+ * <p>Owners register with a username, password, email and mobile number. Login uses
+ * username + password only. The email address is verified once (via a code emailed
+ * to the owner) so it can be trusted for account recovery; the mobile number is kept
+ * as an unverified contact used for the suki-facing reminder/call features.
  */
 @Service
 public class AuthService {
@@ -34,97 +32,72 @@ public class AuthService {
 
     /**
      * Deliberately vague message for any registration uniqueness collision so we
-     * don't disclose whether a username, store name or mobile number exists.
+     * don't disclose whether a username, store name, email or mobile number exists.
      */
     private static final String GENERIC_TAKEN_MESSAGE =
             "Some of those details are already in use. Please try a different "
-                    + "username, store name, or mobile number.";
+                    + "username, store name, email, or mobile number.";
 
     private final OtpCodeRepository otpRepository;
     private final StoreRepository storeRepository;
-    private final TrustedDeviceRepository trustedDeviceRepository;
-    private final SmsSender smsSender;
+    private final EmailSender emailSender;
     private final PasswordEncoder passwordEncoder;
     private final AppProperties.Otp otpProperties;
 
     public AuthService(
             OtpCodeRepository otpRepository,
             StoreRepository storeRepository,
-            TrustedDeviceRepository trustedDeviceRepository,
-            SmsSender smsSender,
+            EmailSender emailSender,
             PasswordEncoder passwordEncoder,
             AppProperties appProperties) {
         this.otpRepository = otpRepository;
         this.storeRepository = storeRepository;
-        this.trustedDeviceRepository = trustedDeviceRepository;
-        this.smsSender = smsSender;
+        this.emailSender = emailSender;
         this.passwordEncoder = passwordEncoder;
         this.otpProperties = appProperties.getOtp();
     }
 
-    /** Registers a new store owner and trusts the registering device. */
+    /** Registers a new store owner. */
     @Transactional
     public Store register(String username, String rawPassword, String phoneNumber,
-                          String storeName, String ownerName, String deviceId) {
+                          String email, String storeName, String ownerName) {
         String uname = normalizeUsername(username);
         if (storeName == null || storeName.isBlank()) {
             throw new IllegalArgumentException("storeName is required");
         }
         String name = storeName.trim();
         String phone = normalizePhone(phoneNumber);
+        String mail = normalizeEmail(email);
 
         // For security, never reveal which detail is already in use — that would let
-        // an attacker enumerate existing usernames, store names or mobile numbers.
-        // Any collision returns the same generic message.
+        // an attacker enumerate existing accounts. Any collision returns the same
+        // generic message.
         if (storeRepository.existsByUsername(uname)
                 || storeRepository.existsByNameIgnoreCase(name)
-                || storeRepository.existsByPhoneNumber(phone)) {
+                || storeRepository.existsByPhoneNumber(phone)
+                || storeRepository.existsByEmail(mail)) {
             throw new ConflictException(GENERIC_TAKEN_MESSAGE);
         }
 
-        Store store = new Store(uname, passwordEncoder.encode(rawPassword), phone,
+        Store store = new Store(uname, passwordEncoder.encode(rawPassword), phone, mail,
                 name, blankToNull(ownerName));
         store.markOnboarded();
-        store = storeRepository.save(store);
-        trustDevice(store.getId(), deviceId);
-        return store;
+        return storeRepository.save(store);
     }
 
-    /** Outcome of a login attempt: either authenticated, or an OTP challenge is required. */
-    public record LoginResult(boolean otpRequired, Store store, String devCode) {
-    }
-
-    /**
-     * Validates credentials. On a trusted device the login completes immediately;
-     * otherwise an OTP is sent to the owner's mobile and {@code otpRequired} is true.
-     */
-    @Transactional
-    public LoginResult login(String username, String rawPassword, String deviceId) {
-        Store store = storeRepository.findByUsername(normalizeUsername(username))
+    /** Validates credentials and completes login (password-only, no per-device code). */
+    @Transactional(readOnly = true)
+    public Store login(String username, String rawPassword) {
+        return storeRepository.findByUsername(normalizeUsername(username))
                 .filter(s -> s.getPasswordHash() != null
                         && passwordEncoder.matches(rawPassword, s.getPasswordHash()))
                 .orElseThrow(() -> new UnauthorizedException("Invalid username or password"));
-
-        if (isDeviceTrusted(store.getId(), deviceId)) {
-            return new LoginResult(false, store, null);
-        }
-        String code = generateAndSendOtp(store.getPhoneNumber());
-        return new LoginResult(true, store, code);
-    }
-
-    /** Verifies the new-device OTP, trusts the device, and completes login. */
-    @Transactional
-    public Store verifyDevice(String username, String code, String deviceId) {
-        Store store = storeRepository.findByUsername(normalizeUsername(username))
-                .orElseThrow(() -> new UnauthorizedException("Invalid username or password"));
-        consumeOtp(store.getPhoneNumber(), code);
-        trustDevice(store.getId(), deviceId);
-        return store;
     }
 
     /** Updates the store profile for an already-authenticated owner. */
     @Transactional
-    public Store updateStore(Store store, String storeName, String ownerName, String phoneNumber) {
+    public Store updateStore(Store store, String storeName, String ownerName,
+                             String phoneNumber, String email) {
         if (storeName == null || storeName.isBlank()) {
             throw new IllegalArgumentException("storeName is required");
         }
@@ -133,33 +106,37 @@ public class AuthService {
             throw new ConflictException("Store name already taken");
         }
         String phone = normalizePhone(phoneNumber);
-        if (!phone.equals(store.getPhoneNumber())) {
-            if (storeRepository.existsByPhoneNumberAndIdNot(phone, store.getId())) {
-                throw new ConflictException("Mobile number already registered");
-            }
-            store.setPhoneNumber(phone);
-            // A new number must be re-verified.
-            store.setPhoneVerified(false);
+        if (!phone.equals(store.getPhoneNumber())
+                && storeRepository.existsByPhoneNumberAndIdNot(phone, store.getId())) {
+            throw new ConflictException("Mobile number already registered");
         }
+        String mail = normalizeEmail(email);
+        if (!mail.equals(store.getEmail())) {
+            if (storeRepository.existsByEmailAndIdNot(mail, store.getId())) {
+                throw new ConflictException("Email already registered");
+            }
+            store.setEmail(mail);
+            // A new email must be re-verified.
+            store.setEmailVerified(false);
+        }
+        store.setPhoneNumber(phone);
         store.setName(name);
         store.setOwnerName(blankToNull(ownerName));
         return storeRepository.save(store);
     }
 
-    /** Sends an OTP to the owner's mobile so they can verify they own the number. */
+    /** Sends a code to the owner's email so they can verify they own the address. */
     @Transactional
-    public String requestPhoneVerification(Store store) {
-        return generateAndSendOtp(store.getPhoneNumber());
+    public String requestEmailVerification(Store store) {
+        return generateAndSendCode(store.getEmail());
     }
 
-    /** Confirms phone ownership via OTP, marks the number verified and trusts the device. */
+    /** Confirms email ownership via the code and marks the address verified. */
     @Transactional
-    public Store confirmPhoneVerification(Store store, String code, String deviceId) {
-        consumeOtp(store.getPhoneNumber(), code);
-        store.setPhoneVerified(true);
-        store = storeRepository.save(store);
-        trustDevice(store.getId(), deviceId);
-        return store;
+    public Store confirmEmailVerification(Store store, String code) {
+        consumeCode(store.getEmail(), code);
+        store.setEmailVerified(true);
+        return storeRepository.save(store);
     }
 
     /** Allowed MIME types for the payment QR code image. */
@@ -206,57 +183,51 @@ public class AuthService {
         return storeRepository.findQrCodeImageById(store.getId());
     }
 
-    /** Whether OTPs are delivered by a real SMS gateway (true) or only logged (false). */
-    public boolean isLiveSms() {
-        return smsSender.isLive();
+    /** Whether codes are delivered by a real email gateway (true) or only logged (false). */
+    public boolean isLiveEmail() {
+        return emailSender.isLive();
     }
 
-    private boolean isDeviceTrusted(Long storeId, String deviceId) {
-        return deviceId != null && !deviceId.isBlank()
-                && trustedDeviceRepository.existsByStoreIdAndDeviceId(storeId, deviceId);
-    }
-
-    private void trustDevice(Long storeId, String deviceId) {
-        if (deviceId == null || deviceId.isBlank()) {
-            return;
-        }
-        if (!trustedDeviceRepository.existsByStoreIdAndDeviceId(storeId, deviceId.trim())) {
-            trustedDeviceRepository.save(new TrustedDevice(storeId, deviceId.trim()));
-        }
-    }
-
-    private String generateAndSendOtp(String phone) {
-        enforceRateLimit(phone);
+    private String generateAndSendCode(String email) {
+        enforceRateLimit(email);
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
         Instant expiresAt = Instant.now().plus(otpProperties.getTtlMinutes(), ChronoUnit.MINUTES);
-        otpRepository.save(new OtpCode(phone, code, expiresAt));
-        smsSender.send(phone, "Your Utang verification code is " + code
-                + ". It expires in " + otpProperties.getTtlMinutes() + " minutes.");
+        otpRepository.save(new OtpCode(email, code, expiresAt));
+        emailSender.send(email, "Your Utang verification code",
+                "Your Utang verification code is " + code
+                        + ". It expires in " + otpProperties.getTtlMinutes() + " minutes.");
         return code;
     }
 
-    private void consumeOtp(String phone, String code) {
+    private void consumeCode(String email, String code) {
         OtpCode otp = otpRepository
-                .findFirstByPhoneNumberAndCodeAndConsumedFalseAndExpiresAtAfterOrderByIdDesc(
-                        phone, code, Instant.now())
-                .orElseThrow(() -> new UnauthorizedException("Invalid or expired OTP"));
+                .findFirstByEmailAndCodeAndConsumedFalseAndExpiresAtAfterOrderByIdDesc(
+                        email, code, Instant.now())
+                .orElseThrow(() -> new UnauthorizedException("Invalid or expired code"));
         otp.markConsumed();
     }
 
-    private void enforceRateLimit(String phone) {
+    private void enforceRateLimit(String email) {
         Instant now = Instant.now();
         Instant cooldownThreshold = now.minusSeconds(otpProperties.getResendCooldownSeconds());
-        if (otpRepository.existsByPhoneNumberAndCreatedAtAfter(phone, cooldownThreshold)) {
+        if (otpRepository.existsByEmailAndCreatedAtAfter(email, cooldownThreshold)) {
             throw new TooManyRequestsException("Please wait a moment before requesting another code");
         }
         Instant hourAgo = now.minus(1, ChronoUnit.HOURS);
-        if (otpRepository.countByPhoneNumberAndCreatedAtAfter(phone, hourAgo) >= otpProperties.getMaxPerHour()) {
+        if (otpRepository.countByEmailAndCreatedAtAfter(email, hourAgo) >= otpProperties.getMaxPerHour()) {
             throw new TooManyRequestsException("Too many code requests. Please try again later");
         }
     }
 
     private static String normalizePhone(String phoneNumber) {
         return PhoneNumbers.toE164(phoneNumber);
+    }
+
+    private static String normalizeEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("email is required");
+        }
+        return email.trim().toLowerCase();
     }
 
     private static String normalizeUsername(String username) {

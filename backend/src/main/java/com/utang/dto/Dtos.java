@@ -1,5 +1,6 @@
 package com.utang.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -15,7 +16,7 @@ public final class Dtos {
 
     // ---- Auth ----
 
-    /** Store owner registration: username, password, mobile number and store profile. */
+    /** Store owner registration: username, password, mobile number, email and store profile. */
     public record RegisterRequest(
             @NotBlank @Size(min = 3, max = 60)
             @Pattern(regexp = "^[a-zA-Z0-9]+$",
@@ -23,6 +24,7 @@ public final class Dtos {
             String username,
             @NotBlank @Size(min = 6, max = 100) String password,
             @NotBlank String phoneNumber,
+            @NotBlank @Email String email,
             @NotBlank String storeName,
             String ownerName) {
     }
@@ -31,43 +33,19 @@ public final class Dtos {
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {
     }
 
-    /** Completes a new-device login by verifying the OTP sent to the owner's mobile. */
-    public record VerifyDeviceRequest(@NotBlank String username, @NotBlank String code) {
-    }
-
     /** Successful authentication: an opaque session token plus the store profile. */
     public record AuthResponse(String token, StoreResponse store) {
-    }
-
-    /**
-     * Login outcome. {@code status} is {@code AUTHENTICATED} (with {@code token} +
-     * {@code store}) or {@code OTP_REQUIRED} (with a masked {@code phoneNumber}, and
-     * {@code devCode} echoed only when SMS delivery is not configured).
-     */
-    public record LoginResponse(
-            String status,
-            String token,
-            StoreResponse store,
-            String phoneNumber,
-            String devCode) {
-
-        public static LoginResponse authenticated(String token, StoreResponse store) {
-            return new LoginResponse("AUTHENTICATED", token, store, null, null);
-        }
-
-        public static LoginResponse otpRequired(String maskedPhone, String devCode) {
-            return new LoginResponse("OTP_REQUIRED", null, null, maskedPhone, devCode);
-        }
     }
 
     public record StoreResponse(
             Long id,
             String username,
             String phoneNumber,
+            String email,
             String name,
             String ownerName,
             boolean onboarded,
-            boolean phoneVerified,
+            boolean emailVerified,
             boolean hasQrCode) {
     }
 
@@ -75,18 +53,19 @@ public final class Dtos {
     public record UpdateStoreRequest(
             @NotBlank String storeName,
             String ownerName,
-            @NotBlank String phoneNumber) {
+            @NotBlank String phoneNumber,
+            @NotBlank @Email String email) {
     }
 
-    /** Confirms the OTP sent to the owner's mobile during phone verification. */
-    public record PhoneVerificationRequest(@NotBlank String code) {
+    /** Confirms the code emailed to the owner during email verification. */
+    public record EmailVerificationRequest(@NotBlank String code) {
     }
 
     /**
-     * Response to a phone verification request: the masked target number, plus a
-     * {@code devCode} echoed only when SMS delivery is not configured.
+     * Response to an email verification request: the masked target address, plus a
+     * {@code devCode} echoed only when email delivery is not configured.
      */
-    public record PhoneVerificationResponse(String phoneNumber, String devCode) {
+    public record EmailVerificationResponse(String email, String devCode) {
     }
 
     // ---- Customers ----
@@ -122,7 +101,11 @@ public final class Dtos {
     public record LedgerResponse(
             Long customerId,
             BigDecimal currentBalance,
-            List<LedgerEntryResponse> entries) {
+            List<LedgerEntryResponse> entries,
+            int page,
+            int size,
+            long totalEntries,
+            boolean hasMore) {
     }
 
     // ---- Reminders ----
@@ -136,7 +119,11 @@ public final class Dtos {
             String customerName,
             BigDecimal outstandingBalance,
             boolean storeHasQrCode,
-            List<PublicLedgerEntry> history) {
+            List<PublicLedgerEntry> history,
+            int page,
+            int size,
+            long totalHistory,
+            boolean hasMore) {
     }
 
     /** A single transaction shown on the public payment page for transparency. */

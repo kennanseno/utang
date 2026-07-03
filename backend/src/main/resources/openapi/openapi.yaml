@@ -20,15 +20,12 @@ paths:
   /auth/register:
     post:
       tags: [Auth]
-      summary: Register a store owner (username + password + mobile)
+      summary: Register a store owner (username + password + email + mobile)
       description: >
-        Creates the store account and signs the owner in on the current device.
-        Send an `X-Device-Id` header to trust this device (skips OTP on future logins).
-        Store name, username and mobile number must each be unique; a conflict
-        returns 409 with a deliberately generic message that does not reveal
-        which detail is already in use.
-      parameters:
-        - $ref: '#/components/parameters/DeviceId'
+        Creates the store account and signs the owner in. Store name, username,
+        email and mobile number must each be unique; a conflict returns 409 with a
+        deliberately generic message that does not reveal which detail is already
+        in use.
       requestBody:
         required: true
         content:
@@ -50,11 +47,7 @@ paths:
       tags: [Auth]
       summary: Log in with username + password
       description: >
-        On a trusted device (matching `X-Device-Id`) returns status `AUTHENTICATED`
-        with a token. From a new device returns status `OTP_REQUIRED` and sends an
-        OTP to the owner's mobile; complete via `/auth/verify-device`.
-      parameters:
-        - $ref: '#/components/parameters/DeviceId'
+        Password-only login. Returns a session token and the store profile.
       requestBody:
         required: true
         content:
@@ -63,29 +56,7 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Authenticated, or an OTP challenge is required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LoginResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-
-  /auth/verify-device:
-    post:
-      tags: [Auth]
-      summary: Verify a new-device OTP and obtain a session token
-      parameters:
-        - $ref: '#/components/parameters/DeviceId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VerifyDeviceRequest'
-      responses:
-        '200':
-          description: Authenticated; device is now trusted
+          description: Authenticated
           content:
             application/json:
               schema:
@@ -129,41 +100,39 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
 
-  /store/phone/verify/request:
+  /store/email/verify/request:
     post:
       tags: [Auth]
-      summary: Send an OTP to verify ownership of the store's mobile number
+      summary: Send a code to verify ownership of the store's email address
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: OTP sent to the store's mobile number
+          description: Verification code sent to the store's email
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PhoneVerificationResponse'
+                $ref: '#/components/schemas/EmailVerificationResponse'
         '401':
           $ref: '#/components/responses/Error'
         '429':
           $ref: '#/components/responses/Error'
 
-  /store/phone/verify/confirm:
+  /store/email/verify/confirm:
     post:
       tags: [Auth]
-      summary: Confirm the OTP and mark the mobile number as verified
+      summary: Confirm the code and mark the email address as verified
       security:
         - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/DeviceId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PhoneVerificationRequest'
+              $ref: '#/components/schemas/EmailVerificationRequest'
       responses:
         '200':
-          description: Phone number verified
+          description: Email address verified
           content:
             application/json:
               schema:
@@ -353,11 +322,30 @@ paths:
   /customers/{id}/ledger:
     get:
       tags: [Ledger]
-      summary: Ledger history for a customer
+      summary: Ledger history for a customer (paged, newest first)
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/CustomerId'
+        - name: page
+          in: query
+          required: false
+          description: Zero-based page index.
+          schema:
+            type: integer
+            format: int32
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          required: false
+          description: Page size (max 100).
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
           description: Ledger
@@ -385,13 +373,32 @@ paths:
   /public/pay/{token}:
     get:
       tags: [Public]
-      summary: Public payment page data (no auth)
+      summary: Public payment page data (no auth, paged history)
       parameters:
         - name: token
           in: path
           required: true
           schema:
             type: string
+        - name: page
+          in: query
+          required: false
+          description: Zero-based page index for transaction history.
+          schema:
+            type: integer
+            format: int32
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          required: false
+          description: History page size (max 100).
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
           description: Public pay info
@@ -437,13 +444,6 @@ components:
       schema:
         type: integer
         format: int64
-    DeviceId:
-      name: X-Device-Id
-      in: header
-      required: false
-      description: Client-generated device identifier used to trust the device.
-      schema:
-        type: string
 
   responses:
     Error:
@@ -456,7 +456,7 @@ components:
   schemas:
     RegisterRequest:
       type: object
-      required: [username, password, phoneNumber, storeName]
+      required: [username, password, phoneNumber, email, storeName]
       properties:
         username:
           type: string
@@ -472,6 +472,10 @@ components:
         phoneNumber:
           type: string
           example: "09171234567"
+        email:
+          type: string
+          format: email
+          example: "nena@example.com"
         storeName:
           type: string
           example: "Aling Nena Store"
@@ -489,15 +493,6 @@ components:
         password:
           type: string
           format: password
-    VerifyDeviceRequest:
-      type: object
-      required: [username, code]
-      properties:
-        username:
-          type: string
-        code:
-          type: string
-          example: "123456"
     AuthResponse:
       type: object
       properties:
@@ -505,29 +500,9 @@ components:
           type: string
         store:
           $ref: '#/components/schemas/StoreResponse'
-    LoginResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          enum: [AUTHENTICATED, OTP_REQUIRED]
-        token:
-          type: string
-          nullable: true
-          description: Present when status is AUTHENTICATED
-        store:
-          $ref: '#/components/schemas/StoreResponse'
-        phoneNumber:
-          type: string
-          nullable: true
-          description: Masked mobile number the OTP was sent to (when OTP_REQUIRED)
-        devCode:
-          type: string
-          nullable: true
-          description: Echoed OTP when no SMS gateway is configured; null when sent via SMS
     UpdateStoreRequest:
       type: object
-      required: [storeName, phoneNumber]
+      required: [storeName, phoneNumber, email]
       properties:
         storeName:
           type: string
@@ -538,26 +513,31 @@ components:
           example: "Nena Reyes"
         phoneNumber:
           type: string
-          description: Changing this resets phoneVerified to false until re-verified.
+          description: Contact number shown to sukis; not verified.
           example: "09171234567"
-    PhoneVerificationRequest:
+        email:
+          type: string
+          format: email
+          description: Changing this resets emailVerified to false until re-verified.
+          example: "nena@example.com"
+    EmailVerificationRequest:
       type: object
       required: [code]
       properties:
         code:
           type: string
           example: "123456"
-    PhoneVerificationResponse:
+    EmailVerificationResponse:
       type: object
       properties:
-        phoneNumber:
+        email:
           type: string
-          description: Masked target number the OTP was sent to.
-          example: "+63•••••4567"
+          description: Masked email address the code was sent to.
+          example: "n•••@example.com"
         devCode:
           type: string
           nullable: true
-          description: Echoed only when SMS delivery is not configured.
+          description: Echoed only when email delivery is not configured.
     StoreResponse:
       type: object
       properties:
@@ -569,6 +549,9 @@ components:
           nullable: true
         phoneNumber:
           type: string
+        email:
+          type: string
+          nullable: true
         name:
           type: string
         ownerName:
@@ -576,7 +559,7 @@ components:
           nullable: true
         onboarded:
           type: boolean
-        phoneVerified:
+        emailVerified:
           type: boolean
         hasQrCode:
           type: boolean
@@ -653,6 +636,21 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LedgerEntryResponse'
+        page:
+          type: integer
+          format: int32
+          description: Zero-based index of this page.
+        size:
+          type: integer
+          format: int32
+          description: Number of entries per page.
+        totalEntries:
+          type: integer
+          format: int64
+          description: Total number of ledger entries for the customer.
+        hasMore:
+          type: boolean
+          description: Whether more (older) entries exist beyond this page.
     ReminderPreviewResponse:
       type: object
       properties:
@@ -675,6 +673,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PublicLedgerEntry'
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalHistory:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
     PublicLedgerEntry:
       type: object
       properties:

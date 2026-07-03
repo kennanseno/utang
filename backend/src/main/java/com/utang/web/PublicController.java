@@ -11,10 +11,14 @@ import com.utang.service.CustomerService;
 import com.utang.service.LedgerService;
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Public, unauthenticated payment page data (accessed via a customer's pay token). */
@@ -34,20 +38,28 @@ public class PublicController {
     }
 
     @GetMapping("/public/pay/{token}")
-    public PublicPayResponse pay(@PathVariable String token) {
+    public PublicPayResponse pay(@PathVariable String token,
+                                 @RequestParam(defaultValue = "0") int page,
+                                 @RequestParam(defaultValue = "20") int size) {
         Customer customer = customerService.getByPayToken(token);
         Store store = storeRepository.findById(customer.getStoreId())
                 .orElseThrow(() -> new NotFoundException("Store not found"));
 
         BigDecimal balance = customer.getCurrentBalance();
 
-        List<PublicLedgerEntry> history = ledgerService.history(customer.getId()).stream()
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), 100);
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+        Page<LedgerEntry> pageResult = ledgerService.history(customer.getId(), pageable);
+        List<PublicLedgerEntry> history = pageResult.getContent().stream()
                 .map(PublicController::toPublicEntry)
                 .toList();
 
         return new PublicPayResponse(
                 store.getName(), store.getPhoneNumber(), customer.getName(), balance,
-                store.hasQrCode(), history);
+                store.hasQrCode(), history,
+                pageResult.getNumber(), pageResult.getSize(),
+                pageResult.getTotalElements(), pageResult.hasNext());
     }
 
     /** Serves the store's uploaded payment QR code so the customer can scan and pay. */

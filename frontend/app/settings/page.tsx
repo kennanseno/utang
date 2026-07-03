@@ -8,13 +8,15 @@ import { Logo } from "../Logo";
 
 const QR_MAX_BYTES = 2 * 1024 * 1024;
 const QR_ACCEPTED = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function StoreSettingsPage() {
   const router = useRouter();
   const [storeName, setStoreName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [phone, setPhone] = useState("");
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -29,13 +31,15 @@ export default function StoreSettingsPage() {
   const [confirmRemoveQr, setConfirmRemoveQr] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
 
-  // Phone verification flow.
+  // Email verification flow.
   const [verifyStep, setVerifyStep] = useState<"idle" | "code">("idle");
   const [code, setCode] = useState("");
-  const [maskedPhone, setMaskedPhone] = useState("");
+  const [maskedEmail, setMaskedEmail] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
+
+  const emailValid = EMAIL_PATTERN.test(email.trim());
 
   useEffect(() => {
     if (!getToken()) {
@@ -48,7 +52,8 @@ export default function StoreSettingsPage() {
         setStoreName(store.name);
         setOwnerName(store.ownerName ?? "");
         setPhone(store.phoneNumber);
-        setPhoneVerified(store.phoneVerified);
+        setEmail(store.email ?? "");
+        setEmailVerified(store.emailVerified);
         setHasQr(store.hasQrCode);
         if (store.hasQrCode) {
           void fetchQrCodeUrl()
@@ -128,7 +133,7 @@ export default function StoreSettingsPage() {
 
   async function saveStore() {
     setConfirmSave(false);
-    if (!storeName.trim() || !phone.trim()) return;
+    if (!storeName.trim() || !phone.trim() || !emailValid) return;
     setError(null);
     setSaved(false);
     setSaving(true);
@@ -136,13 +141,15 @@ export default function StoreSettingsPage() {
       const updated = await api.updateStore(
         storeName.trim(),
         ownerName.trim() || undefined,
-        phone.trim()
+        phone.trim(),
+        email.trim()
       );
       setStoreName(updated.name);
       setOwnerName(updated.ownerName ?? "");
       setPhone(updated.phoneNumber);
-      setPhoneVerified(updated.phoneVerified);
-      // Changing the number resets verification, so cancel any in-progress flow.
+      setEmail(updated.email ?? "");
+      setEmailVerified(updated.emailVerified);
+      // Changing the email resets verification, so cancel any in-progress flow.
       setVerifyStep("idle");
       setSaved(true);
     } catch (e) {
@@ -156,8 +163,8 @@ export default function StoreSettingsPage() {
     setVerifyError(null);
     setVerifyBusy(true);
     try {
-      const res = await api.requestPhoneVerification();
-      setMaskedPhone(res.phoneNumber);
+      const res = await api.requestEmailVerification();
+      setMaskedEmail(res.email);
       setDevCode(res.devCode);
       setCode("");
       setVerifyStep("code");
@@ -173,8 +180,8 @@ export default function StoreSettingsPage() {
     setVerifyError(null);
     setVerifyBusy(true);
     try {
-      const updated = await api.confirmPhoneVerification(code.trim());
-      setPhoneVerified(updated.phoneVerified);
+      const updated = await api.confirmEmailVerification(code.trim());
+      setEmailVerified(updated.emailVerified);
       setVerifyStep("idle");
     } catch (e) {
       setVerifyError((e as Error).message);
@@ -207,52 +214,52 @@ export default function StoreSettingsPage() {
           suki&apos;s payment reminders.
         </p>
 
-        <label htmlFor="phone">
-          Phone number{" "}
+        <label htmlFor="email">
+          Email{" "}
           {!loading &&
-            (phoneVerified ? (
+            (emailVerified ? (
               <span className="badge ok">Verified</span>
             ) : (
               <span className="badge warn">Not verified</span>
             ))}
         </label>
         <input
-          id="phone"
-          type="tel"
-          inputMode="tel"
-          placeholder="09XX XXX XXXX"
-          value={phone}
+          id="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          value={email}
           onChange={(e) => {
-            setPhone(e.target.value);
+            setEmail(e.target.value);
             setSaved(false);
             setConfirmSave(false);
           }}
         />
 
-        {!loading && !phoneVerified && (
+        {!loading && !emailVerified && (
           <div className="notice">
             <p style={{ margin: 0 }}>
-              Your mobile number isn&apos;t verified yet. Some features are
-              disabled until you verify it — you won&apos;t be able to send SMS
-              reminders to your suki or receive login and OTP codes on a new
-              device.
+              Your email isn&apos;t verified yet. Verify it to secure your
+              account and make it easier to recover access if you forget your
+              password.
             </p>
             {verifyStep === "idle" && (
               <button
                 className="secondary"
                 onClick={handleRequestVerification}
-                disabled={verifyBusy}
+                disabled={verifyBusy || !emailValid}
                 style={{ marginTop: 10 }}
               >
-                {verifyBusy ? "Sending code…" : "Verify this number"}
+                {verifyBusy ? "Sending code…" : "Verify this email"}
               </button>
             )}
             {verifyStep === "code" && (
               <>
                 <p className="muted" style={{ marginTop: 10 }}>
-                  We sent a code to {maskedPhone}.
+                  We sent a code to {maskedEmail}.
                 </p>
-                <label htmlFor="otp">Enter OTP</label>
+                <label htmlFor="otp">Enter code</label>
                 <input
                   id="otp"
                   type="text"
@@ -289,6 +296,23 @@ export default function StoreSettingsPage() {
             {verifyError && <p className="error">{verifyError}</p>}
           </div>
         )}
+
+        <label htmlFor="phone">Phone number</label>
+        <input
+          id="phone"
+          type="tel"
+          inputMode="tel"
+          placeholder="09XX XXX XXXX"
+          value={phone}
+          onChange={(e) => {
+            setPhone(e.target.value);
+            setSaved(false);
+            setConfirmSave(false);
+          }}
+        />
+        <p className="muted" style={{ marginTop: 6 }}>
+          Shown to your suki so they can reach you about their utang.
+        </p>
 
         <label htmlFor="storeName">Store name</label>
         <input
@@ -403,11 +427,17 @@ export default function StoreSettingsPage() {
         {!confirmSave ? (
           <button
             onClick={() => {
-              if (!storeName.trim() || !phone.trim()) return;
+              if (!storeName.trim() || !phone.trim() || !emailValid) return;
               setSaved(false);
               setConfirmSave(true);
             }}
-            disabled={loading || saving || !storeName.trim() || !phone.trim()}
+            disabled={
+              loading ||
+              saving ||
+              !storeName.trim() ||
+              !phone.trim() ||
+              !emailValid
+            }
           >
             Save changes
           </button>

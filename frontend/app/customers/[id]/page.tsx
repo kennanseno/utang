@@ -8,8 +8,10 @@ import {
   formatPeso,
   getToken,
   Customer,
-  Ledger,
+  LedgerEntry,
 } from "@/lib/api";
+
+const LEDGER_PAGE_SIZE = 20;
 
 export default function CustomerPage() {
   const router = useRouter();
@@ -17,7 +19,10 @@ export default function CustomerPage() {
   const customerId = Number(params.id);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [ledger, setLedger] = useState<Ledger | null>(null);
+  const [entries, setEntries] = useState<LedgerEntry[]>([]);
+  const [ledgerPage, setLedgerPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -49,12 +54,30 @@ export default function CustomerPage() {
     try {
       const [c, l] = await Promise.all([
         api.getCustomer(customerId),
-        api.getLedger(customerId),
+        api.getLedger(customerId, 0, LEDGER_PAGE_SIZE),
       ]);
       setCustomer(c);
-      setLedger(l);
+      setEntries(l.entries);
+      setLedgerPage(l.page);
+      setHasMore(l.hasMore);
     } catch (e) {
       setError((e as Error).message);
+    }
+  }
+
+  async function loadMoreEntries() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const next = await api.getLedger(customerId, ledgerPage + 1, LEDGER_PAGE_SIZE);
+      setEntries((prev) => [...prev, ...next.entries]);
+      setLedgerPage(next.page);
+      setHasMore(next.hasMore);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -346,10 +369,10 @@ export default function CustomerPage() {
 
       <div className="card">
         <strong>Ledger history</strong>
-        {ledger && ledger.entries.length === 0 && (
+        {entries.length === 0 && (
           <p className="muted">No entries yet.</p>
         )}
-        {ledger?.entries.map((e) => (
+        {entries.map((e) => (
           <div key={e.id} className="entry">
             <div>
               <div>{e.type === "DEBIT" ? "Utang" : "Bayad"}</div>
@@ -358,11 +381,21 @@ export default function CustomerPage() {
             <div
               className={`amt ${e.type === "DEBIT" ? "debit" : "credit"}`}
             >
-              {e.type === "DEBIT" ? "+" : "−"}
+              {e.type === "DEBIT" ? "+" : "\u2212"}
               {formatPeso(e.amount)}
             </div>
           </div>
         ))}
+        {hasMore && (
+          <button
+            className="secondary"
+            onClick={loadMoreEntries}
+            disabled={loadingMore}
+            style={{ marginTop: 8 }}
+          >
+            {loadingMore ? "Loading\u2026" : "Load more"}
+          </button>
+        )}
       </div>
 
       {notice && <p className="link center">{notice}</p>}

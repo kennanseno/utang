@@ -40,20 +40,17 @@ utang:
   # Base URL used to build public payment links surfaced in reminder messages.
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:3000}
   otp:
-    # OTP lifetime and per-number request throttling (anti-SMS-pumping).
+    # Verification-code lifetime and per-email request throttling (anti-abuse).
     ttl-minutes: ${OTP_TTL_MINUTES:5}
     resend-cooldown-seconds: ${OTP_RESEND_COOLDOWN_SECONDS:60}
     max-per-hour: ${OTP_MAX_PER_HOUR:5}
-  twilio:
-    # Twilio credentials for SMS (OTP + reminders). Leave blank to log messages
-    # instead of delivering them (no external calls).
-    account-sid: ${TWILIO_ACCOUNT_SID:}
-    auth-token: ${TWILIO_AUTH_TOKEN:}
-    # Sender number in E.164 format, e.g. +639171234567.
-    from-number: ${TWILIO_FROM_NUMBER:}
-    # Optional Messaging Service SID (MG…). When set, it takes precedence over from-number.
-    messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}
-    base-url: ${TWILIO_BASE_URL:https://api.twilio.com/2010-04-01}
+  resend:
+    # Resend transactional email (account verification codes). Leave the API key
+    # blank to log codes to the console instead of delivering them (no external calls).
+    api-key: ${RESEND_API_KEY:}
+    # Verified sender, e.g. "Utang <no-reply@yourdomain.com>".
+    from-email: ${RESEND_FROM_EMAIL:}
+    base-url: ${RESEND_BASE_URL:https://api.resend.com}
 
 logging:
   level:

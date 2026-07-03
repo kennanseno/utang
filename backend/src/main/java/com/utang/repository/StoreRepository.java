@@ -19,6 +19,10 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
 
     boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
 
+    boolean existsByEmail(String email);
+
+    boolean existsByEmailAndIdNot(String email, Long id);
+
     boolean existsByNameIgnoreCase(String name);
 
     boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);

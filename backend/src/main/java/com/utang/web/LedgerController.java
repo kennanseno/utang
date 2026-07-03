@@ -11,10 +11,14 @@ import com.utang.security.CurrentStore;
 import com.utang.service.CustomerService;
 import com.utang.service.LedgerService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -45,12 +49,26 @@ public class LedgerController {
         return ApiMapper.toCustomer(customerService.get(store.getId(), customer.getId()));
     }
 
+    /** A page of the customer's ledger entries, newest first. */
     @GetMapping("/customers/{id}/ledger")
-    public LedgerResponse ledger(@CurrentStore Store store, @PathVariable Long id) {
+    public LedgerResponse ledger(@CurrentStore Store store, @PathVariable Long id,
+                                 @RequestParam(defaultValue = "0") int page,
+                                 @RequestParam(defaultValue = "20") int size) {
         Customer customer = customerService.get(store.getId(), id);
-        var entries = ledgerService.history(customer.getId()).stream()
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), 100);
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+        Page<com.utang.domain.LedgerEntry> pageResult = ledgerService.history(customer.getId(), pageable);
+        var entries = pageResult.getContent().stream()
                 .map(ApiMapper::toLedgerEntry)
                 .toList();
-        return new LedgerResponse(customer.getId(), customer.getCurrentBalance(), entries);
+        return new LedgerResponse(
+                customer.getId(),
+                customer.getCurrentBalance(),
+                entries,
+                pageResult.getNumber(),
+                pageResult.getSize(),
+                pageResult.getTotalElements(),
+                pageResult.hasNext());
     }
 }

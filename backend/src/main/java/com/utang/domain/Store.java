@@ -25,6 +25,10 @@ public class Store {
     @Column(name = "phone_number", nullable = false, unique = true)
     private String phoneNumber;
 
+    /** Account email address. Verified once at signup; used for account recovery. */
+    @Column(unique = true)
+    private String email;
+
     @Column(nullable = false, unique = true)
     private String name = "My Store";
 
@@ -35,9 +39,9 @@ public class Store {
     @Column(nullable = false)
     private boolean onboarded = false;
 
-    /** True once the owner has verified ownership of their mobile number via OTP. */
-    @Column(name = "phone_verified", nullable = false)
-    private boolean phoneVerified = false;
+    /** True once the owner has verified ownership of their email address via a code. */
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
 
     /**
      * MIME type of the stored QR code image (e.g. image/png), or null when none is
@@ -61,10 +65,12 @@ public class Store {
     }
 
     /** Registration constructor: full store owner account with credentials. */
-    public Store(String username, String passwordHash, String phoneNumber, String name, String ownerName) {
+    public Store(String username, String passwordHash, String phoneNumber, String email,
+                 String name, String ownerName) {
         this.username = username;
         this.passwordHash = passwordHash;
         this.phoneNumber = phoneNumber;
+        this.email = email;
         this.name = name;
         this.ownerName = ownerName;
     }
@@ -93,6 +99,14 @@ public class Store {
         this.phoneNumber = phoneNumber;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     public String getName() {
         return name;
     }
@@ -117,12 +131,12 @@ public class Store {
         this.onboarded = true;
     }
 
-    public boolean isPhoneVerified() {
-        return phoneVerified;
+    public boolean isEmailVerified() {
+        return emailVerified;
     }
 
-    public void setPhoneVerified(boolean phoneVerified) {
-        this.phoneVerified = phoneVerified;
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
     }
 
     public String getQrCodeContentType() {

@@ -2,13 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { api, fetchPublicQrCodeUrl, formatPeso, PublicPay } from "@/lib/api";
+import { api, fetchPublicQrCodeUrl, formatPeso, PublicLedgerEntry, PublicPay } from "@/lib/api";
 import { Logo } from "../../Logo";
+
+const HISTORY_PAGE_SIZE = 20;
 
 export default function PublicPayPage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
   const [data, setData] = useState<PublicPay | null>(null);
+  const [entries, setEntries] = useState<PublicLedgerEntry[]>([]);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
@@ -18,8 +24,11 @@ export default function PublicPayPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await api.publicPay(token);
+        const res = await api.publicPay(token, 0, HISTORY_PAGE_SIZE);
         setData(res);
+        setEntries(res.history);
+        setHistoryPage(res.page);
+        setHasMore(res.hasMore);
         if (res.storeHasQrCode) {
           fetchPublicQrCodeUrl(token)
             .then(setQrUrl)
@@ -33,6 +42,22 @@ export default function PublicPayPage() {
     }
     void load();
   }, [token]);
+
+  async function loadMoreHistory() {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = historyPage + 1;
+      const res = await api.publicPay(token, next, HISTORY_PAGE_SIZE);
+      setEntries((prev) => [...prev, ...res.history]);
+      setHistoryPage(res.page);
+      setHasMore(res.hasMore);
+    } catch {
+      // Keep existing entries on failure; user can retry.
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   // Release the object URL for the QR image when it changes or on unmount.
   useEffect(() => {
@@ -157,14 +182,14 @@ export default function PublicPayPage() {
         )}
       </div>
 
-      {data.history.length > 0 && (
+      {entries.length > 0 && (
         <div className="card">
           <strong>Transaction history</strong>
           <p className="muted" style={{ marginTop: 4 }}>
             Kompletong listahan ng utang at bayad.
           </p>
           <div style={{ marginTop: 8 }}>
-            {data.history.map((e, i) => {
+            {entries.map((e, i) => {
               const isDebit = e.type === "DEBIT";
               return (
                 <div key={i} className="entry">
@@ -186,11 +211,21 @@ export default function PublicPayPage() {
               );
             })}
           </div>
+          {hasMore && (
+            <button
+              className="secondary"
+              onClick={loadMoreHistory}
+              disabled={loadingMore}
+              style={{ marginTop: 8 }}
+            >
+              {loadingMore ? "Naglo-load…" : "Magpakita pa"}
+            </button>
+          )}
         </div>
       )}
 
       <p className="muted center" style={{ marginTop: 16 }}>
-        Secure payment powered by PayMongo.
+        Direktang bayad sa tindera gamit ang kanilang GCash/Maya QR.
       </p>
     </>
   );

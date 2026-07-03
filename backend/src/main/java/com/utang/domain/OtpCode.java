@@ -16,8 +16,8 @@ public class OtpCode {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "phone_number", nullable = false)
-    private String phoneNumber;
+    @Column(nullable = false)
+    private String email;
 
     @Column(nullable = false)
     private String code;
@@ -34,8 +34,8 @@ public class OtpCode {
     protected OtpCode() {
     }
 
-    public OtpCode(String phoneNumber, String code, Instant expiresAt) {
-        this.phoneNumber = phoneNumber;
+    public OtpCode(String email, String code, Instant expiresAt) {
+        this.email = email;
         this.code = code;
         this.expiresAt = expiresAt;
     }
@@ -44,8 +44,8 @@ public class OtpCode {
         return id;
     }
 
-    public String getPhoneNumber() {
-        return phoneNumber;
+    public String getEmail() {
+        return email;
     }
 
     public String getCode() {

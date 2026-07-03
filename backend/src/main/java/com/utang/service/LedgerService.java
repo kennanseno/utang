@@ -8,6 +8,8 @@ import com.utang.repository.CustomerRepository;
 import com.utang.repository.LedgerEntryRepository;
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +54,12 @@ public class LedgerService {
     @Transactional(readOnly = true)
     public List<LedgerEntry> history(Long customerId) {
         return ledgerRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+    }
+
+    /** A single page of ledger entries, newest first. */
+    @Transactional(readOnly = true)
+    public Page<LedgerEntry> history(Long customerId, Pageable pageable) {
+        return ledgerRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, pageable);
     }
 
     private void validateAmount(BigDecimal amount) {
