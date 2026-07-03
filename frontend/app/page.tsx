@@ -33,7 +33,7 @@ export default function OnboardingPage() {
     try {
       const res = await api.verifyOtp(phone.trim(), code.trim());
       setToken(res.token);
-      router.push("/dashboard");
+      router.push(res.onboarded ? "/dashboard" : "/onboarding");
     } catch (e) {
       setError((e as Error).message);
     } finally {

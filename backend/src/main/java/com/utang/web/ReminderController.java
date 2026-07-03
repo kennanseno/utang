@@ -31,12 +31,11 @@ class ReminderController {
         return new ReminderPreviewResponse(message, canSend);
     }
 
-    /** Logs the reminder (copy counts as sent). Enforces the once-per-day lock. */
+    /** Sends the reminder (via SMS when the suki has a phone; copy otherwise). Enforces the once-per-day lock. */
     @PostMapping("/customers/{id}/remind")
     RemindResponse remind(@CurrentStore Store store, @PathVariable Long id) {
         Customer customer = customerService.get(store.getId(), id);
-        String message = reminderService.buildMessage(store, customer);
-        reminderService.logReminder(customer.getId(), "copy");
+        String message = reminderService.sendReminder(store, customer);
         return new RemindResponse(message, true);
     }
 }

@@ -22,6 +22,13 @@ public class Store {
     @Column(nullable = false)
     private String name = "My Store";
 
+    @Column(name = "owner_name")
+    private String ownerName;
+
+    /** True once the owner has completed onboarding (set their store profile). */
+    @Column(nullable = false)
+    private boolean onboarded = false;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -47,6 +54,22 @@ public class Store {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getOwnerName() {
+        return ownerName;
+    }
+
+    public void setOwnerName(String ownerName) {
+        this.ownerName = ownerName;
+    }
+
+    public boolean isOnboarded() {
+        return onboarded;
+    }
+
+    public void markOnboarded() {
+        this.onboarded = true;
     }
 
     public Instant getCreatedAt() {

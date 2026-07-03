@@ -3,6 +3,7 @@ package com.utang.service;
 import com.utang.domain.Customer;
 import com.utang.error.NotFoundException;
 import com.utang.repository.CustomerRepository;
+import com.utang.support.PhoneNumbers;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,9 @@ public class CustomerService {
             throw new IllegalArgumentException("name is required");
         }
         String payToken = UUID.randomUUID().toString().replace("-", "");
-        String phone = (phoneNumber == null || phoneNumber.isBlank()) ? null : phoneNumber.trim();
+        String phone = (phoneNumber == null || phoneNumber.isBlank())
+                ? null
+                : PhoneNumbers.toE164(phoneNumber);
         return customerRepository.save(new Customer(storeId, name.trim(), phone, payToken));
     }
 

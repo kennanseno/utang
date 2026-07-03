@@ -57,6 +57,28 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
 
+  /onboarding:
+    post:
+      tags: [Auth]
+      summary: Complete store owner onboarding
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingRequest'
+      responses:
+        '200':
+          description: Onboarded store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
   /me:
     get:
       tags: [Auth]
@@ -307,7 +329,8 @@ components:
           type: string
         devCode:
           type: string
-          description: Dev-only echoed OTP (no SMS gateway in MVP)
+          nullable: true
+          description: Echoed OTP when no SMS gateway is configured; null when sent via SMS
         message:
           type: string
     VerifyOtpRequest:
@@ -323,8 +346,22 @@ components:
       properties:
         token:
           type: string
+        onboarded:
+          type: boolean
+          description: False when the store still needs to complete onboarding
         store:
           $ref: '#/components/schemas/StoreResponse'
+    OnboardingRequest:
+      type: object
+      required: [storeName]
+      properties:
+        storeName:
+          type: string
+          example: "Aling Nena Store"
+        ownerName:
+          type: string
+          nullable: true
+          example: "Nena Reyes"
     StoreResponse:
       type: object
       properties:
@@ -335,6 +372,11 @@ components:
           type: string
         name:
           type: string
+        ownerName:
+          type: string
+          nullable: true
+        onboarded:
+          type: boolean
     CreateCustomerRequest:
       type: object
       required: [name]

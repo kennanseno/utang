@@ -15,17 +15,30 @@ public final class Dtos {
     public record RequestOtpRequest(@NotBlank String phoneNumber) {
     }
 
-    /** In MVP the OTP is echoed back for easy testing (no SMS gateway). */
+    /**
+     * Response to an OTP request. When SMS delivery is not configured, {@code devCode}
+     * echoes the generated code for testing; in live mode it is {@code null}.
+     */
     public record RequestOtpResponse(String phoneNumber, String devCode, String message) {
     }
 
     public record VerifyOtpRequest(@NotBlank String phoneNumber, @NotBlank String code) {
     }
 
-    public record AuthResponse(String token, StoreResponse store) {
+    /** {@code onboarded} is false for a store that still needs to complete onboarding. */
+    public record AuthResponse(String token, boolean onboarded, StoreResponse store) {
     }
 
-    public record StoreResponse(Long id, String phoneNumber, String name) {
+    /** Store owner onboarding profile. */
+    public record OnboardingRequest(@NotBlank String storeName, String ownerName) {
+    }
+
+    public record StoreResponse(
+            Long id,
+            String phoneNumber,
+            String name,
+            String ownerName,
+            boolean onboarded) {
     }
 
     // ---- Customers ----

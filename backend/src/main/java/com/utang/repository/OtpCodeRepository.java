@@ -9,4 +9,8 @@ public interface OtpCodeRepository extends JpaRepository<OtpCode, Long> {
 
     Optional<OtpCode> findFirstByPhoneNumberAndCodeAndConsumedFalseAndExpiresAtAfterOrderByIdDesc(
             String phoneNumber, String code, Instant now);
+
+    boolean existsByPhoneNumberAndCreatedAtAfter(String phoneNumber, Instant threshold);
+
+    long countByPhoneNumberAndCreatedAtAfter(String phoneNumber, Instant threshold);
 }

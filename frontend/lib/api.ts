@@ -24,6 +24,8 @@ export interface Store {
   id: number;
   phoneNumber: string;
   name: string;
+  ownerName: string | null;
+  onboarded: boolean;
 }
 
 export interface Customer {
@@ -91,18 +93,24 @@ async function request<T>(
 
 export const api = {
   requestOtp: (phoneNumber: string) =>
-    request<{ phoneNumber: string; devCode: string; message: string }>(
+    request<{ phoneNumber: string; devCode: string | null; message: string }>(
       "/auth/request-otp",
       { method: "POST", body: JSON.stringify({ phoneNumber }) },
       false
     ),
 
   verifyOtp: (phoneNumber: string, code: string) =>
-    request<{ token: string; store: Store }>(
+    request<{ token: string; onboarded: boolean; store: Store }>(
       "/auth/verify-otp",
       { method: "POST", body: JSON.stringify({ phoneNumber, code }) },
       false
     ),
+
+  onboard: (storeName: string, ownerName?: string) =>
+    request<Store>("/onboarding", {
+      method: "POST",
+      body: JSON.stringify({ storeName, ownerName: ownerName || null }),
+    }),
 
   me: () => request<Store>("/me"),
 
