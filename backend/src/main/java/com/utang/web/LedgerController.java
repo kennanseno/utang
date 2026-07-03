@@ -10,6 +10,7 @@ import com.utang.dto.Dtos.LedgerResponse;
 import com.utang.security.CurrentStore;
 import com.utang.service.CustomerService;
 import com.utang.service.LedgerService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,7 +30,7 @@ public class LedgerController {
 
     /** Add utang (DEBIT) — increases the customer's balance. */
     @PostMapping("/ledger/debit")
-    public CustomerResponse debit(@CurrentStore Store store, @RequestBody DebitRequest request) {
+    public CustomerResponse debit(@CurrentStore Store store, @Valid @RequestBody DebitRequest request) {
         // Ownership check before mutating the ledger.
         Customer customer = customerService.get(store.getId(), request.customerId());
         ledgerService.applyEntry(customer.getId(), EntryType.DEBIT, request.amount(), request.note());

@@ -105,7 +105,7 @@ public final class Dtos {
     }
 
     // ---- Ledger ----
-    public record DebitRequest(Long customerId, BigDecimal amount, String note) {
+    public record DebitRequest(Long customerId, BigDecimal amount, @NotBlank String note) {
     }
 
     public record CreditRequest(Long customerId, BigDecimal amount, String note) {
@@ -126,23 +126,17 @@ public final class Dtos {
     }
 
     // ---- Reminders ----
-    public record ReminderPreviewResponse(String message, boolean canSendToday) {
-    }
-
-    public record RemindResponse(String message, boolean sent) {
+    public record ReminderPreviewResponse(String message) {
     }
 
     // ---- Public ----
     public record PublicPayResponse(
             String storeName,
+            String storePhoneNumber,
             String customerName,
             BigDecimal outstandingBalance,
             boolean storeHasQrCode,
             List<PublicLedgerEntry> history) {
-    }
-
-    /** Result of a customer notifying the store owner that they have paid. */
-    public record PaidNotificationResponse(boolean sent) {
     }
 
     /** A single transaction shown on the public payment page for transparency. */

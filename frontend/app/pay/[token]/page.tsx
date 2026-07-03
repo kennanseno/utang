@@ -12,9 +12,8 @@ export default function PublicPayPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
-  const [notifyBusy, setNotifyBusy] = useState(false);
-  const [notifyDone, setNotifyDone] = useState(false);
-  const [notifyError, setNotifyError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -42,19 +41,6 @@ export default function PublicPayPage() {
     };
   }, [qrUrl]);
 
-  async function notifyPaid() {
-    setNotifyBusy(true);
-    setNotifyError(null);
-    try {
-      await api.notifyPaid(token);
-      setNotifyDone(true);
-    } catch (e) {
-      setNotifyError((e as Error).message);
-    } finally {
-      setNotifyBusy(false);
-    }
-  }
-
   if (loading) {
     return <p className="muted center">Loading…</p>;
   }
@@ -64,6 +50,22 @@ export default function PublicPayPage() {
   }
 
   const hasBalance = data.outstandingBalance > 0;
+  const paidMessage = `Hi ${data.storeName}! Ako po si ${data.customerName}. Nakabayad na po ako sa aking utang${
+    hasBalance ? ` na ${formatPeso(data.outstandingBalance)}` : ""
+  }. Salamat po!`;
+  const smsHref = `sms:${data.storePhoneNumber.replace(/\s/g, "")}?&body=${encodeURIComponent(
+    paidMessage
+  )}`;
+
+  async function copyPaidMessage() {
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(paidMessage);
+      setCopied(true);
+    } catch (e) {
+      setCopyError((e as Error).message);
+    }
+  }
 
   return (
     <>
@@ -113,26 +115,47 @@ export default function PublicPayPage() {
         <div className="card center muted">Walang utang. Salamat!</div>
       )}
 
-      {notifyDone ? (
-        <p className="link center" style={{ marginTop: 16 }}>
-          Naipaalam na sa tindera na nakabayad ka na. Salamat!
+      <div className="card">
+        <strong>Nakabayad ka na? Ipaalam sa tindera</strong>
+        <p className="muted" style={{ marginTop: 4 }}>
+          Kopyahin ang mensahe at i-text sa tindera para malaman niyang
+          nakabayad ka na.
         </p>
-      ) : (
-        <>
-          <button
-            className="secondary"
-            onClick={notifyPaid}
-            disabled={notifyBusy}
-            style={{ marginTop: 16 }}
-          >
-            {notifyBusy ? "Sinasabi sa tindera…" : "Nakabayad na ako"}
-          </button>
-          <p className="muted center" style={{ marginTop: 8 }}>
-            I-text ang tindera na nakapagbayad ka na.
+
+        <div
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 12,
+            background: "var(--bg)",
+            border: "1px solid var(--border)",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {paidMessage}
+        </div>
+
+        <a href={smsHref}>
+          <button style={{ marginTop: 12 }}>I-text ang tindera</button>
+        </a>
+
+        <button className="secondary" onClick={copyPaidMessage}>
+          {copied ? "✓ Nakopya na!" : "Kopyahin ang mensahe"}
+        </button>
+
+        <div className="center" style={{ marginTop: 12 }}>
+          <div className="muted">Numero ng tindera</div>
+          <a href={`tel:${data.storePhoneNumber.replace(/\s/g, "")}`}>
+            <strong>{data.storePhoneNumber}</strong>
+          </a>
+        </div>
+
+        {copyError && (
+          <p className="error center" style={{ marginTop: 8 }}>
+            {copyError}
           </p>
-        </>
-      )}
-      {notifyError && <p className="error center">{notifyError}</p>}
+        )}
+      </div>
 
       {data.history.length > 0 && (
         <div className="card">

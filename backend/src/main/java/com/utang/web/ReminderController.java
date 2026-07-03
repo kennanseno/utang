@@ -2,14 +2,12 @@ package com.utang.web;
 
 import com.utang.domain.Customer;
 import com.utang.domain.Store;
-import com.utang.dto.Dtos.RemindResponse;
 import com.utang.dto.Dtos.ReminderPreviewResponse;
 import com.utang.security.CurrentStore;
 import com.utang.service.CustomerService;
 import com.utang.service.ReminderService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,15 +25,6 @@ class ReminderController {
     ReminderPreviewResponse preview(@CurrentStore Store store, @PathVariable Long id) {
         Customer customer = customerService.get(store.getId(), id);
         String message = reminderService.buildMessage(store, customer);
-        boolean canSend = reminderService.canSendToday(customer.getId());
-        return new ReminderPreviewResponse(message, canSend);
-    }
-
-    /** Sends the reminder (via SMS when the suki has a phone; copy otherwise). Enforces the once-per-day lock. */
-    @PostMapping("/customers/{id}/remind")
-    RemindResponse remind(@CurrentStore Store store, @PathVariable Long id) {
-        Customer customer = customerService.get(store.getId(), id);
-        String message = reminderService.sendReminder(store, customer);
-        return new RemindResponse(message, true);
+        return new ReminderPreviewResponse(message);
     }
 }

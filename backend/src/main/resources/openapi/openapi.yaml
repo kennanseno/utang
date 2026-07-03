@@ -382,24 +382,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReminderPreviewResponse'
 
-  /customers/{id}/remind:
-    post:
-      tags: [Reminders]
-      summary: Log a reminder (copy). Max 1 per customer per day.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/CustomerId'
-      responses:
-        '200':
-          description: Reminder logged
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RemindResponse'
-        '409':
-          $ref: '#/components/responses/Error'
-
   /public/pay/{token}:
     get:
       tags: [Public]
@@ -440,28 +422,6 @@ paths:
                 format: binary
         '404':
           description: Store has no QR code
-
-  /public/pay/{token}/notify-paid:
-    post:
-      tags: [Public]
-      summary: Text the store owner that the customer has paid (no auth)
-      parameters:
-        - name: token
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Notification sent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaidNotificationResponse'
-        '429':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
 
 components:
   securitySchemes:
@@ -698,19 +658,12 @@ components:
       properties:
         message:
           type: string
-        canSendToday:
-          type: boolean
-    RemindResponse:
-      type: object
-      properties:
-        message:
-          type: string
-        sent:
-          type: boolean
     PublicPayResponse:
       type: object
       properties:
         storeName:
+          type: string
+        storePhoneNumber:
           type: string
         customerName:
           type: string
@@ -722,11 +675,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PublicLedgerEntry'
-    PaidNotificationResponse:
-      type: object
-      properties:
-        sent:
-          type: boolean
     PublicLedgerEntry:
       type: object
       properties:

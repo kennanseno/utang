@@ -87,11 +87,11 @@ export interface Ledger {
 
 export interface ReminderPreview {
   message: string;
-  canSendToday: boolean;
 }
 
 export interface PublicPay {
   storeName: string;
+  storePhoneNumber: string;
   customerName: string;
   outstandingBalance: number;
   storeHasQrCode: boolean;
@@ -239,21 +239,8 @@ export const api = {
   reminderPreview: (customerId: number) =>
     request<ReminderPreview>(`/customers/${customerId}/reminder-preview`),
 
-  remind: (customerId: number) =>
-    request<{ message: string; sent: boolean }>(
-      `/customers/${customerId}/remind`,
-      { method: "POST" }
-    ),
-
   publicPay: (token: string) =>
     request<PublicPay>(`/public/pay/${token}`, {}, false),
-
-  notifyPaid: (token: string) =>
-    request<{ sent: boolean }>(
-      `/public/pay/${token}/notify-paid`,
-      { method: "POST" },
-      false
-    ),
 };
 
 export function formatPeso(amount: number): string {

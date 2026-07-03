@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
@@ -94,11 +95,27 @@ export default function DashboardPage() {
           <Link className="link" href="/settings">
             Store details
           </Link>
-          <a className="link" onClick={logout}>
+          <a className="link" onClick={() => setConfirmLogout(true)}>
             Logout
           </a>
         </span>
       </div>
+
+      {confirmLogout && (
+        <div className="card">
+          <strong>Log out?</strong>
+          <p className="muted">You&apos;ll need to sign in again next time.</p>
+          <div className="row">
+            <button onClick={logout}>Yes, log out</button>
+            <button
+              className="secondary"
+              onClick={() => setConfirmLogout(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="muted">Total nakautang sa iyo</div>

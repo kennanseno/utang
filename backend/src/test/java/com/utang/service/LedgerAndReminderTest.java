@@ -1,12 +1,10 @@
 package com.utang.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.utang.domain.Customer;
 import com.utang.domain.EntryType;
 import com.utang.domain.Store;
-import com.utang.error.ConflictException;
 import com.utang.repository.StoreRepository;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
@@ -21,8 +19,6 @@ class LedgerAndReminderTest {
     private CustomerService customerService;
     @Autowired
     private LedgerService ledgerService;
-    @Autowired
-    private ReminderService reminderService;
     @Autowired
     private StoreRepository storeRepository;
 
@@ -52,18 +48,5 @@ class LedgerAndReminderTest {
                 customer.getId(), EntryType.CREDIT, new BigDecimal("50.00"), "bayad");
 
         assertThat(balance).isEqualByComparingTo("50.00");
-    }
-
-    @Test
-    void scenario3_reminderLockedAfterFirstSendToday() {
-        Store store = newStore();
-        Customer customer = customerService.create(store.getId(), "Maria", null);
-        ledgerService.applyEntry(customer.getId(), EntryType.DEBIT, new BigDecimal("100.00"), null);
-
-        reminderService.logReminder(customer.getId(), "copy");
-
-        assertThat(reminderService.canSendToday(customer.getId())).isFalse();
-        assertThatThrownBy(() -> reminderService.logReminder(customer.getId(), "copy"))
-                .isInstanceOf(ConflictException.class);
     }
 }

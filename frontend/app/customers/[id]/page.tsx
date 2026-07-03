@@ -27,12 +27,12 @@ export default function CustomerPage() {
 
   const [reminderOpen, setReminderOpen] = useState(false);
   const [reminderMsg, setReminderMsg] = useState("");
-  const [canRemind, setCanRemind] = useState(true);
 
   const [editingPhone, setEditingPhone] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneSaving, setPhoneSaving] = useState(false);
+  const [confirmEdit, setConfirmEdit] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,9 +61,10 @@ export default function CustomerPage() {
   async function addUtang() {
     const amount = Number(utang);
     if (!amount || amount <= 0) return;
+    if (!utangNote.trim()) return;
     setError(null);
     try {
-      await api.debit(customerId, amount, utangNote.trim() || undefined);
+      await api.debit(customerId, amount, utangNote.trim());
       setUtang("");
       setUtangNote("");
       setReminderOpen(false);
@@ -91,11 +92,13 @@ export default function CustomerPage() {
     setNameInput(customer?.name ?? "");
     setPhoneInput(customer?.phoneNumber ?? "");
     setPhoneError(null);
+    setConfirmEdit(false);
     setEditingPhone(true);
   }
 
   async function savePhone() {
     if (!nameInput.trim() || !phoneInput.trim()) return;
+    setConfirmEdit(false);
     setPhoneSaving(true);
     setPhoneError(null);
     try {
@@ -119,7 +122,6 @@ export default function CustomerPage() {
     try {
       const preview = await api.reminderPreview(customerId);
       setReminderMsg(preview.message);
-      setCanRemind(preview.canSendToday);
       setReminderOpen(true);
     } catch (e) {
       setError((e as Error).message);
@@ -129,11 +131,7 @@ export default function CustomerPage() {
   async function copyReminder() {
     try {
       await navigator.clipboard.writeText(reminderMsg);
-      // Copy counts as a reminder — log it (enforces once-per-day lock).
-      await api.remind(customerId);
       setNotice("Message copied! Paste it in SMS or Messenger.");
-      setCanRemind(false);
-      setReminderOpen(false);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -142,18 +140,11 @@ export default function CustomerPage() {
   function textViaSms() {
     if (!customer?.phoneNumber) return;
     // sms: URI scheme (RFC 5724). The `?&body=` form prefills the message on
-    // both iOS and Android. Navigating opens the Messages app; it doesn't
-    // unload this page, so the reminder log below still completes.
+    // both iOS and Android. Navigating opens the Messages app so the owner
+    // sends it from their own phone.
     const number = customer.phoneNumber.replace(/\s+/g, "");
     const href = `sms:${number}?&body=${encodeURIComponent(reminderMsg)}`;
     window.location.href = href;
-    // Opening the composer counts as a reminder (enforces once-per-day lock).
-    if (canRemind) {
-      api
-        .remind(customerId)
-        .then(() => setCanRemind(false))
-        .catch(() => {});
-    }
     setNotice("Opening Messages… tap Send there to finish.");
   }
 
@@ -190,6 +181,7 @@ export default function CustomerPage() {
               onChange={(e) => {
                 setNameInput(e.target.value);
                 setPhoneError(null);
+                setConfirmEdit(false);
               }}
             />
             <label htmlFor="editphone">Mobile number</label>
@@ -202,24 +194,46 @@ export default function CustomerPage() {
               onChange={(e) => {
                 setPhoneInput(e.target.value);
                 setPhoneError(null);
+                setConfirmEdit(false);
               }}
             />
             {phoneError && <p className="error">{phoneError}</p>}
-            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-              <button
-                onClick={savePhone}
-                disabled={phoneSaving || !nameInput.trim() || !phoneInput.trim()}
-              >
-                {phoneSaving ? "Saving…" : "Save changes"}
-              </button>
-              <button
-                className="secondary"
-                onClick={() => setEditingPhone(false)}
-                disabled={phoneSaving}
-              >
-                Cancel
-              </button>
-            </div>
+            {confirmEdit ? (
+              <div className="notice" style={{ marginTop: 4 }}>
+                <p style={{ margin: 0 }}>Save these changes to this suki&apos;s details?</p>
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button onClick={savePhone} disabled={phoneSaving}>
+                    {phoneSaving ? "Saving…" : "Yes, save"}
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => setConfirmEdit(false)}
+                    disabled={phoneSaving}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button
+                  onClick={() => {
+                    if (!nameInput.trim() || !phoneInput.trim()) return;
+                    setConfirmEdit(true);
+                  }}
+                  disabled={phoneSaving || !nameInput.trim() || !phoneInput.trim()}
+                >
+                  Save changes
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => setEditingPhone(false)}
+                  disabled={phoneSaving}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -263,14 +277,14 @@ export default function CustomerPage() {
           value={utang}
           onChange={(e) => setUtang(e.target.value)}
         />
-        <label htmlFor="note">Note (optional)</label>
+        <label htmlFor="note">Note</label>
         <input
           id="note"
           placeholder="e.g. sardinas, load"
           value={utangNote}
           onChange={(e) => setUtangNote(e.target.value)}
         />
-        <button onClick={addUtang} disabled={!Number(utang)}>
+        <button onClick={addUtang} disabled={!Number(utang) || !utangNote.trim()}>
           Add utang
         </button>
       </div>
@@ -309,14 +323,8 @@ export default function CustomerPage() {
             value={reminderMsg}
             onChange={(e) => setReminderMsg(e.target.value)}
           />
-          {!canRemind && (
-            <p className="muted">
-              You already reminded this suki today. Copying again is allowed but
-              won&apos;t be logged twice.
-            </p>
-          )}
           {customer.phoneNumber ? (
-            <button onClick={textViaSms} disabled={!canRemind}>
+            <button onClick={textViaSms}>
               Text via SMS
             </button>
           ) : (

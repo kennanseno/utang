@@ -25,6 +25,9 @@ export default function StoreSettingsPage() {
   const [hasQr, setHasQr] = useState(false);
   const [qrBusy, setQrBusy] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [pendingQr, setPendingQr] = useState<File | null>(null);
+  const [confirmRemoveQr, setConfirmRemoveQr] = useState(false);
+  const [confirmSave, setConfirmSave] = useState(false);
 
   // Phone verification flow.
   const [verifyStep, setVerifyStep] = useState<"idle" | "code">("idle");
@@ -65,7 +68,7 @@ export default function StoreSettingsPage() {
     };
   }, [qrUrl]);
 
-  async function handleQrChange(e: ChangeEvent<HTMLInputElement>) {
+  function handleQrChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
     // Allow re-selecting the same file later.
     e.target.value = "";
@@ -79,6 +82,16 @@ export default function StoreSettingsPage() {
       setQrError("QR code image must be 2 MB or smaller.");
       return;
     }
+    // Replacing an existing QR needs confirmation; a first upload does not.
+    if (hasQr) {
+      setPendingQr(file);
+    } else {
+      void uploadQr(file);
+    }
+  }
+
+  async function uploadQr(file: File) {
+    setPendingQr(null);
     setQrBusy(true);
     try {
       await api.uploadQrCode(file);
@@ -95,7 +108,8 @@ export default function StoreSettingsPage() {
     }
   }
 
-  async function handleRemoveQr() {
+  async function removeQr() {
+    setConfirmRemoveQr(false);
     setQrError(null);
     setQrBusy(true);
     try {
@@ -112,7 +126,8 @@ export default function StoreSettingsPage() {
     }
   }
 
-  async function handleSave() {
+  async function saveStore() {
+    setConfirmSave(false);
     if (!storeName.trim() || !phone.trim()) return;
     setError(null);
     setSaved(false);
@@ -210,6 +225,7 @@ export default function StoreSettingsPage() {
           onChange={(e) => {
             setPhone(e.target.value);
             setSaved(false);
+            setConfirmSave(false);
           }}
         />
 
@@ -282,6 +298,7 @@ export default function StoreSettingsPage() {
           onChange={(e) => {
             setStoreName(e.target.value);
             setSaved(false);
+            setConfirmSave(false);
           }}
         />
 
@@ -293,6 +310,7 @@ export default function StoreSettingsPage() {
           onChange={(e) => {
             setOwnerName(e.target.value);
             setSaved(false);
+            setConfirmSave(false);
           }}
         />
 
@@ -340,23 +358,76 @@ export default function StoreSettingsPage() {
           disabled={qrBusy}
         />
         {qrBusy && <p className="muted">Uploading…</p>}
-        {qrUrl && !qrBusy && (
+        {pendingQr && !qrBusy && (
+          <div className="notice" style={{ marginTop: 10 }}>
+            <p style={{ margin: 0 }}>
+              Replace your current QR code with &ldquo;{pendingQr.name}&rdquo;?
+              Your suki will start seeing the new QR right away.
+            </p>
+            <div className="row" style={{ marginTop: 10 }}>
+              <button onClick={() => uploadQr(pendingQr)}>Yes, replace</button>
+              <button className="secondary" onClick={() => setPendingQr(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        {qrUrl && !qrBusy && !confirmRemoveQr && !pendingQr && (
           <button
             className="secondary"
-            onClick={handleRemoveQr}
+            onClick={() => setConfirmRemoveQr(true)}
             style={{ marginTop: 10 }}
           >
             Remove QR code
           </button>
         )}
+        {confirmRemoveQr && !qrBusy && (
+          <div className="notice" style={{ marginTop: 10 }}>
+            <p style={{ margin: 0 }}>
+              Remove your payment QR code? Your suki won&apos;t be able to scan
+              and pay until you upload a new one.
+            </p>
+            <div className="row" style={{ marginTop: 10 }}>
+              <button onClick={removeQr}>Yes, remove</button>
+              <button
+                className="secondary"
+                onClick={() => setConfirmRemoveQr(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
         {qrError && <p className="error">{qrError}</p>}
 
-        <button
-          onClick={handleSave}
-          disabled={loading || saving || !storeName.trim() || !phone.trim()}
-        >
-          {saving ? "Saving…" : "Save changes"}
-        </button>
+        {!confirmSave ? (
+          <button
+            onClick={() => {
+              if (!storeName.trim() || !phone.trim()) return;
+              setSaved(false);
+              setConfirmSave(true);
+            }}
+            disabled={loading || saving || !storeName.trim() || !phone.trim()}
+          >
+            Save changes
+          </button>
+        ) : (
+          <div className="notice" style={{ marginTop: 10 }}>
+            <p style={{ margin: 0 }}>Save these changes to your store details?</p>
+            <div className="row" style={{ marginTop: 10 }}>
+              <button onClick={saveStore} disabled={saving}>
+                {saving ? "Saving…" : "Yes, save"}
+              </button>
+              <button
+                className="secondary"
+                onClick={() => setConfirmSave(false)}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {saved && <p className="muted">Saved.</p>}
         {error && <p className="error">{error}</p>}
