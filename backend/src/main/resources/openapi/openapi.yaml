@@ -3,7 +3,7 @@ info:
   title: Utang API
   description: >
     MVP API for tracking customer utang (debt), recording payments, generating
-    copyable reminders, and accepting PayMongo payments. Ledger-first design.
+    copyable reminders. Ledger-first design.
   version: 0.0.1
 servers:
   - url: http://localhost:8080
@@ -14,68 +14,82 @@ tags:
   - name: Customers
   - name: Ledger
   - name: Reminders
-  - name: Payments
   - name: Public
-  - name: Webhooks
 
 paths:
-  /auth/request-otp:
+  /auth/register:
     post:
       tags: [Auth]
-      summary: Request an OTP for a phone number
+      summary: Register a store owner (username + password + mobile)
+      description: >
+        Creates the store account and signs the owner in on the current device.
+        Send an `X-Device-Id` header to trust this device (skips OTP on future logins).
+        Store name, username and mobile number must each be unique; a conflict
+        returns 409 with a deliberately generic message that does not reveal
+        which detail is already in use.
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RequestOtpRequest'
+              $ref: '#/components/schemas/RegisterRequest'
       responses:
         '200':
-          description: OTP generated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestOtpResponse'
-
-  /auth/verify-otp:
-    post:
-      tags: [Auth]
-      summary: Verify OTP and obtain a session token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VerifyOtpRequest'
-      responses:
-        '200':
-          description: Authenticated
+          description: Registered and authenticated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
-        '401':
+        '409':
           $ref: '#/components/responses/Error'
 
-  /onboarding:
+  /auth/login:
     post:
       tags: [Auth]
-      summary: Complete store owner onboarding
-      security:
-        - bearerAuth: []
+      summary: Log in with username + password
+      description: >
+        On a trusted device (matching `X-Device-Id`) returns status `AUTHENTICATED`
+        with a token. From a new device returns status `OTP_REQUIRED` and sends an
+        OTP to the owner's mobile; complete via `/auth/verify-device`.
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OnboardingRequest'
+              $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Onboarded store
+          description: Authenticated, or an OTP challenge is required
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StoreResponse'
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /auth/verify-device:
+    post:
+      tags: [Auth]
+      summary: Verify a new-device OTP and obtain a session token
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyDeviceRequest'
+      responses:
+        '200':
+          description: Authenticated; device is now trusted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
         '401':
           $ref: '#/components/responses/Error'
 
@@ -92,6 +106,135 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StoreResponse'
+
+  /store:
+    put:
+      tags: [Auth]
+      summary: Update store details
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStoreRequest'
+      responses:
+        '200':
+          description: Updated store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /store/phone/verify/request:
+    post:
+      tags: [Auth]
+      summary: Send an OTP to verify ownership of the store's mobile number
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OTP sent to the store's mobile number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneVerificationResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+
+  /store/phone/verify/confirm:
+    post:
+      tags: [Auth]
+      summary: Confirm the OTP and mark the mobile number as verified
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneVerificationRequest'
+      responses:
+        '200':
+          description: Phone number verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /store/qr:
+    get:
+      tags: [Auth]
+      summary: Get the store's payment QR code image
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The QR code image
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No QR code uploaded
+    put:
+      tags: [Auth]
+      summary: Upload or replace the store's payment QR code image
+      description: >
+        Accepts a PNG, JPG, WebP or GIF image up to 2 MB. Replaces any existing
+        QR code. The image is stored inline with the store record.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: QR code saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [Auth]
+      summary: Remove the store's payment QR code image
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: QR code removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreResponse'
+        '401':
+          $ref: '#/components/responses/Error'
 
   /customers:
     post:
@@ -138,6 +281,28 @@ paths:
       responses:
         '200':
           description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    put:
+      tags: [Customers]
+      summary: Update a customer's name and mobile number
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerRequest'
+      responses:
+        '200':
+          description: Updated customer
           content:
             application/json:
               schema:
@@ -235,26 +400,6 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
-  /payments/link:
-    post:
-      tags: [Payments]
-      summary: Create a PayMongo payment link
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePaymentLinkRequest'
-      responses:
-        '200':
-          description: Payment link
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaymentLinkResponse'
-
   /public/pay/{token}:
     get:
       tags: [Public]
@@ -275,20 +420,47 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
-  /webhooks/paymongo:
-    post:
-      tags: [Webhooks]
-      summary: PayMongo webhook receiver (idempotent)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
+  /public/pay/{token}/qr:
+    get:
+      tags: [Public]
+      summary: Store's payment QR code image (no auth)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         '200':
-          description: Processed
-        '401':
+          description: QR code image
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Store has no QR code
+
+  /public/pay/{token}/notify-paid:
+    post:
+      tags: [Public]
+      summary: Text the store owner that the customer has paid (no auth)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaidNotificationResponse'
+        '429':
+          $ref: '#/components/responses/Error'
+        '404':
           $ref: '#/components/responses/Error'
 
 components:
@@ -305,6 +477,13 @@ components:
       schema:
         type: integer
         format: int64
+    DeviceId:
+      name: X-Device-Id
+      in: header
+      required: false
+      description: Client-generated device identifier used to trust the device.
+      schema:
+        type: string
 
   responses:
     Error:
@@ -315,45 +494,80 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
-    RequestOtpRequest:
+    RegisterRequest:
       type: object
-      required: [phoneNumber]
+      required: [username, password, phoneNumber, storeName]
       properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 60
+          pattern: "^[a-zA-Z0-9]+$"
+          example: "alingnena"
+        password:
+          type: string
+          format: password
+          minLength: 6
+          example: "s3cret!"
         phoneNumber:
           type: string
           example: "09171234567"
-    RequestOtpResponse:
-      type: object
-      properties:
-        phoneNumber:
+        storeName:
           type: string
-        devCode:
+          example: "Aling Nena Store"
+        ownerName:
           type: string
           nullable: true
-          description: Echoed OTP when no SMS gateway is configured; null when sent via SMS
-        message:
-          type: string
-    VerifyOtpRequest:
+          example: "Nena Reyes"
+    LoginRequest:
       type: object
-      required: [phoneNumber, code]
+      required: [username, password]
       properties:
-        phoneNumber:
+        username:
+          type: string
+          example: "aling.nena"
+        password:
+          type: string
+          format: password
+    VerifyDeviceRequest:
+      type: object
+      required: [username, code]
+      properties:
+        username:
           type: string
         code:
           type: string
+          example: "123456"
     AuthResponse:
       type: object
       properties:
         token:
           type: string
-        onboarded:
-          type: boolean
-          description: False when the store still needs to complete onboarding
         store:
           $ref: '#/components/schemas/StoreResponse'
-    OnboardingRequest:
+    LoginResponse:
       type: object
-      required: [storeName]
+      properties:
+        status:
+          type: string
+          enum: [AUTHENTICATED, OTP_REQUIRED]
+        token:
+          type: string
+          nullable: true
+          description: Present when status is AUTHENTICATED
+        store:
+          $ref: '#/components/schemas/StoreResponse'
+        phoneNumber:
+          type: string
+          nullable: true
+          description: Masked mobile number the OTP was sent to (when OTP_REQUIRED)
+        devCode:
+          type: string
+          nullable: true
+          description: Echoed OTP when no SMS gateway is configured; null when sent via SMS
+    UpdateStoreRequest:
+      type: object
+      required: [storeName, phoneNumber]
       properties:
         storeName:
           type: string
@@ -362,12 +576,37 @@ components:
           type: string
           nullable: true
           example: "Nena Reyes"
+        phoneNumber:
+          type: string
+          description: Changing this resets phoneVerified to false until re-verified.
+          example: "09171234567"
+    PhoneVerificationRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          example: "123456"
+    PhoneVerificationResponse:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+          description: Masked target number the OTP was sent to.
+          example: "+63•••••4567"
+        devCode:
+          type: string
+          nullable: true
+          description: Echoed only when SMS delivery is not configured.
     StoreResponse:
       type: object
       properties:
         id:
           type: integer
           format: int64
+        username:
+          type: string
+          nullable: true
         phoneNumber:
           type: string
         name:
@@ -377,15 +616,27 @@ components:
           nullable: true
         onboarded:
           type: boolean
+        phoneVerified:
+          type: boolean
+        hasQrCode:
+          type: boolean
+          description: Whether a payment QR code image has been uploaded (fetch it from GET /store/qr).
     CreateCustomerRequest:
       type: object
-      required: [name]
+      required: [name, phoneNumber]
       properties:
         name:
           type: string
         phoneNumber:
           type: string
-          nullable: true
+    UpdateCustomerRequest:
+      type: object
+      required: [name, phoneNumber]
+      properties:
+        name:
+          type: string
+        phoneNumber:
+          type: string
     CustomerResponse:
       type: object
       properties:
@@ -456,24 +707,6 @@ components:
           type: string
         sent:
           type: boolean
-    CreatePaymentLinkRequest:
-      type: object
-      required: [customerId, amount]
-      properties:
-        customerId:
-          type: integer
-          format: int64
-        amount:
-          type: number
-    PaymentLinkResponse:
-      type: object
-      properties:
-        referenceId:
-          type: string
-        amount:
-          type: number
-        checkoutUrl:
-          type: string
     PublicPayResponse:
       type: object
       properties:
@@ -483,9 +716,31 @@ components:
           type: string
         outstandingBalance:
           type: number
-        checkoutUrl:
+        storeHasQrCode:
+          type: boolean
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicLedgerEntry'
+    PaidNotificationResponse:
+      type: object
+      properties:
+        sent:
+          type: boolean
+    PublicLedgerEntry:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [DEBIT, CREDIT]
+        amount:
+          type: number
+        note:
           type: string
           nullable: true
+        createdAt:
+          type: string
+          format: date-time
     ErrorResponse:
       type: object
       properties:

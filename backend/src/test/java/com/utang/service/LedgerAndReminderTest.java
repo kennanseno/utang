@@ -27,7 +27,8 @@ class LedgerAndReminderTest {
     private StoreRepository storeRepository;
 
     private Store newStore() {
-        return storeRepository.save(new Store("0917" + System.nanoTime(), "Aling Nena Store"));
+        long unique = System.nanoTime();
+        return storeRepository.save(new Store("0917" + unique, "Aling Nena Store " + unique));
     }
 
     @Test

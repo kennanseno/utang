@@ -3,7 +3,7 @@
 Product: **Utang** · Version: **MVP v1** · Author: Kennan Seno · Date: 2026-07-01
 
 Mobile-first web app for Philippine micro-businesses (sari-sari stores) to track customer
-debt ("utang") and collect payments via SMS-copyable reminders and PayMongo links.
+debt ("utang") and collect payments via SMS-copyable reminders.
 
 ## Core value proposition
 
@@ -13,19 +13,16 @@ debt ("utang") and collect payments via SMS-copyable reminders and PayMongo link
 
 | Entity        | Key fields |
 |---------------|-----------|
-| Customer      | id, store_id, name, phone_number (optional), current_balance |
+| Customer      | id, store_id, name, phone_number, current_balance |
 | LedgerEntry   | id, customer_id, type (DEBIT/CREDIT), amount, note, created_at |
-| Payment       | id, customer_id, amount, method (CASH/LINK), provider, provider_ref_id (unique), status |
 | ReminderLog   | id, customer_id, sent_at, method (manual), channel (copy/sms) |
-| WebhookEvent  | id, provider, external_event_id (unique), payload, processed |
 
 ## Business rules
 
 - `balance = sum(debits) - sum(credits)`
 - DEBIT increases balance; CREDIT decreases balance.
 - Balance updates are atomic.
-- Cash → manual CREDIT. PayMongo → webhook → CREDIT.
-- Idempotency: Payments `UNIQUE(provider, provider_ref_id)`; Webhooks `UNIQUE(provider, external_event_id)`.
+- Cash → manual CREDIT.
 - Max **1 manual reminder per customer per day** (copy counts as a reminder).
 
 ## API contract (MVP)
@@ -41,11 +38,10 @@ debt ("utang") and collect payments via SMS-copyable reminders and PayMongo link
 | POST | `/ledger/debit` | Add utang |
 | POST | `/ledger/credit` | Record payment/credit |
 | GET  | `/customers/{id}/ledger` | Ledger history |
-| POST | `/payments/link` | Create PayMongo payment link |
 | GET  | `/customers/{id}/reminder-preview` | Preview reminder message |
 | POST | `/customers/{id}/remind` | Log reminder (once/day) |
-| GET  | `/public/pay/{token}` | Public payment page data |
-| POST | `/webhooks/paymongo` | PayMongo webhook receiver |
+| GET  | `/public/pay/{token}` | Public pay page data (balance + store QR) |
+| POST | `/public/pay/{token}/notify-paid` | Customer texts owner they've paid |
 
 ## Reminder message format
 
@@ -58,14 +54,14 @@ Pwede ka magbayad dito: {link}
 
 1. **Phase 1** — Auth, Customers, Ledger
 2. **Phase 2** — Reminder system (copy flow)
-3. **Phase 3** — Payment link + Webhook
+3. **Phase 3** — Public pay page (store QR + "paid" notification)
 
 ## Hard exclusions (do NOT build)
 
-Auto-reminders · QR payments · SMS API integration · Customer login · Editing/deleting
-ledger entries · Dashboards/analytics · Multiple PSPs · Complex retry queues.
+Auto-reminders · Online payment gateways/PSPs · SMS API integration · Customer login · Editing/deleting
+ledger entries · Dashboards/analytics · Complex retry queues.
 
 ## Acceptance criteria
 
 A user can: sign up via OTP · add a customer · add utang · record cash payment · see correct
-balance · copy reminder message · send payment link · receive webhook payment.
+balance · copy reminder message · share the public pay page (store QR) · get notified when a customer says they paid.

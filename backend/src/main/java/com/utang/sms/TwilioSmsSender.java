@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Twilio SMS adapter. Sends messages via the Twilio Messages REST API using a plain
- * HTTP client (no SDK dependency), mirroring the PayMongo gateway approach.
+ * HTTP client (no SDK dependency).
  *
  * @see <a href="https://www.twilio.com/docs/sms/api/message-resource">Twilio Messages</a>
  */

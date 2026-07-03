@@ -29,6 +29,12 @@ export default function CustomerPage() {
   const [reminderMsg, setReminderMsg] = useState("");
   const [canRemind, setCanRemind] = useState(true);
 
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!getToken()) {
       router.replace("/");
@@ -60,6 +66,7 @@ export default function CustomerPage() {
       await api.debit(customerId, amount, utangNote.trim() || undefined);
       setUtang("");
       setUtangNote("");
+      setReminderOpen(false);
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -73,9 +80,36 @@ export default function CustomerPage() {
     try {
       await api.credit(customerId, amount, "Cash");
       setBayad("");
+      setReminderOpen(false);
       await load();
     } catch (e) {
       setError((e as Error).message);
+    }
+  }
+
+  function startEditPhone() {
+    setNameInput(customer?.name ?? "");
+    setPhoneInput(customer?.phoneNumber ?? "");
+    setPhoneError(null);
+    setEditingPhone(true);
+  }
+
+  async function savePhone() {
+    if (!nameInput.trim() || !phoneInput.trim()) return;
+    setPhoneSaving(true);
+    setPhoneError(null);
+    try {
+      const updated = await api.updateCustomer(
+        customerId,
+        nameInput.trim(),
+        phoneInput.trim()
+      );
+      setCustomer(updated);
+      setEditingPhone(false);
+    } catch (e) {
+      setPhoneError((e as Error).message);
+    } finally {
+      setPhoneSaving(false);
     }
   }
 
@@ -105,20 +139,22 @@ export default function CustomerPage() {
     }
   }
 
-  async function sendPaymentLink() {
-    if (!customer) return;
-    setError(null);
-    setNotice(null);
-    try {
-      const link = await api.createPaymentLink(
-        customerId,
-        Math.max(0, customer.currentBalance)
-      );
-      await navigator.clipboard.writeText(link.checkoutUrl);
-      setNotice("Payment link copied to clipboard.");
-    } catch (e) {
-      setError((e as Error).message);
+  function textViaSms() {
+    if (!customer?.phoneNumber) return;
+    // sms: URI scheme (RFC 5724). The `?&body=` form prefills the message on
+    // both iOS and Android. Navigating opens the Messages app; it doesn't
+    // unload this page, so the reminder log below still completes.
+    const number = customer.phoneNumber.replace(/\s+/g, "");
+    const href = `sms:${number}?&body=${encodeURIComponent(reminderMsg)}`;
+    window.location.href = href;
+    // Opening the composer counts as a reminder (enforces once-per-day lock).
+    if (canRemind) {
+      api
+        .remind(customerId)
+        .then(() => setCanRemind(false))
+        .catch(() => {});
     }
+    setNotice("Opening Messages… tap Send there to finish.");
   }
 
   if (!customer) {
@@ -133,7 +169,6 @@ export default function CustomerPage() {
       </>
     );
   }
-
   const owed = customer.currentBalance > 0;
 
   return (
@@ -145,11 +180,69 @@ export default function CustomerPage() {
       </div>
 
       <div className="card">
-        <div className="name" style={{ fontSize: 18, fontWeight: 700 }}>
-          {customer.name}
-        </div>
-        {customer.phoneNumber && (
-          <div className="muted">{customer.phoneNumber}</div>
+        {editingPhone ? (
+          <div>
+            <label htmlFor="editname">Name</label>
+            <input
+              id="editname"
+              placeholder="Pangalan"
+              value={nameInput}
+              onChange={(e) => {
+                setNameInput(e.target.value);
+                setPhoneError(null);
+              }}
+            />
+            <label htmlFor="editphone">Mobile number</label>
+            <input
+              id="editphone"
+              type="tel"
+              inputMode="tel"
+              placeholder="09XX XXX XXXX"
+              value={phoneInput}
+              onChange={(e) => {
+                setPhoneInput(e.target.value);
+                setPhoneError(null);
+              }}
+            />
+            {phoneError && <p className="error">{phoneError}</p>}
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button
+                onClick={savePhone}
+                disabled={phoneSaving || !nameInput.trim() || !phoneInput.trim()}
+              >
+                {phoneSaving ? "Saving…" : "Save changes"}
+              </button>
+              <button
+                className="secondary"
+                onClick={() => setEditingPhone(false)}
+                disabled={phoneSaving}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <div className="name" style={{ fontSize: 18, fontWeight: 700 }}>
+                {customer.name}
+              </div>
+              <a
+                className="link"
+                style={{ cursor: "pointer" }}
+                onClick={startEditPhone}
+              >
+                Edit
+              </a>
+            </div>
+            <div className="muted">{customer.phoneNumber}</div>
+          </>
         )}
         <div className="muted" style={{ marginTop: 12 }}>
           Balance
@@ -205,13 +298,6 @@ export default function CustomerPage() {
       <div className="card">
         <div className="row">
           <button onClick={openReminder}>Remind</button>
-          <button
-            className="secondary"
-            onClick={sendPaymentLink}
-            disabled={!owed}
-          >
-            Send pay link
-          </button>
         </div>
       </div>
 
@@ -229,7 +315,18 @@ export default function CustomerPage() {
               won&apos;t be logged twice.
             </p>
           )}
-          <button onClick={copyReminder}>Copy message</button>
+          {customer.phoneNumber ? (
+            <button onClick={textViaSms} disabled={!canRemind}>
+              Text via SMS
+            </button>
+          ) : (
+            <p className="muted">
+              Add a mobile number for this suki to text them directly.
+            </p>
+          )}
+          <button className="secondary" onClick={copyReminder}>
+            Copy message
+          </button>
           <button
             className="secondary"
             onClick={() => setReminderOpen(false)}

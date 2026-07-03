@@ -1,16 +1,23 @@
 package com.utang.web;
 
 import com.utang.domain.Customer;
-import com.utang.domain.PaymentLink;
+import com.utang.domain.LedgerEntry;
 import com.utang.domain.Store;
+import com.utang.dto.Dtos.PaidNotificationResponse;
+import com.utang.dto.Dtos.PublicLedgerEntry;
 import com.utang.dto.Dtos.PublicPayResponse;
 import com.utang.error.NotFoundException;
 import com.utang.repository.StoreRepository;
 import com.utang.service.CustomerService;
-import com.utang.service.PaymentService;
+import com.utang.service.LedgerService;
+import com.utang.service.PaidNotificationService;
 import java.math.BigDecimal;
+import java.util.List;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Public, unauthenticated payment page data (accessed via a customer's pay token). */
@@ -19,14 +26,17 @@ public class PublicController {
 
     private final CustomerService customerService;
     private final StoreRepository storeRepository;
-    private final PaymentService paymentService;
+    private final LedgerService ledgerService;
+    private final PaidNotificationService paidNotificationService;
 
     public PublicController(CustomerService customerService,
                             StoreRepository storeRepository,
-                            PaymentService paymentService) {
+                            LedgerService ledgerService,
+                            PaidNotificationService paidNotificationService) {
         this.customerService = customerService;
         this.storeRepository = storeRepository;
-        this.paymentService = paymentService;
+        this.ledgerService = ledgerService;
+        this.paidNotificationService = paidNotificationService;
     }
 
     @GetMapping("/public/pay/{token}")
@@ -36,11 +46,44 @@ public class PublicController {
                 .orElseThrow(() -> new NotFoundException("Store not found"));
 
         BigDecimal balance = customer.getCurrentBalance();
-        String checkoutUrl = null;
-        if (balance.signum() > 0) {
-            PaymentLink link = paymentService.createLink(store.getId(), customer.getId(), balance);
-            checkoutUrl = link.getCheckoutUrl();
+
+        List<PublicLedgerEntry> history = ledgerService.history(customer.getId()).stream()
+                .map(PublicController::toPublicEntry)
+                .toList();
+
+        return new PublicPayResponse(
+                store.getName(), customer.getName(), balance, store.hasQrCode(), history);
+    }
+
+    /** Serves the store's uploaded payment QR code so the customer can scan and pay. */
+    @GetMapping("/public/pay/{token}/qr")
+    public ResponseEntity<byte[]> qr(@PathVariable String token) {
+        Customer customer = customerService.getByPayToken(token);
+        Store store = storeRepository.findById(customer.getStoreId())
+                .orElseThrow(() -> new NotFoundException("Store not found"));
+        if (!store.hasQrCode()) {
+            return ResponseEntity.notFound().build();
         }
-        return new PublicPayResponse(store.getName(), customer.getName(), balance, checkoutUrl);
+        byte[] image = storeRepository.findQrCodeImageById(store.getId());
+        if (image == null || image.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(store.getQrCodeContentType()))
+                .body(image);
+    }
+
+    /** Lets the customer text the store owner that they have paid their utang. */
+    @PostMapping("/public/pay/{token}/notify-paid")
+    public PaidNotificationResponse notifyPaid(@PathVariable String token) {
+        Customer customer = customerService.getByPayToken(token);
+        Store store = storeRepository.findById(customer.getStoreId())
+                .orElseThrow(() -> new NotFoundException("Store not found"));
+        paidNotificationService.notifyPaid(store, customer);
+        return new PaidNotificationResponse(true);
+    }
+
+    private static PublicLedgerEntry toPublicEntry(LedgerEntry e) {
+        return new PublicLedgerEntry(e.getType().name(), e.getAmount(), e.getNote(), e.getCreatedAt());
     }
 }

@@ -23,10 +23,11 @@ public class CustomerService {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("name is required");
         }
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            throw new IllegalArgumentException("mobile number is required");
+        }
         String payToken = UUID.randomUUID().toString().replace("-", "");
-        String phone = (phoneNumber == null || phoneNumber.isBlank())
-                ? null
-                : PhoneNumbers.toE164(phoneNumber);
+        String phone = PhoneNumbers.toE164(phoneNumber);
         return customerRepository.save(new Customer(storeId, name.trim(), phone, payToken));
     }
 
@@ -34,16 +35,29 @@ public class CustomerService {
     public List<Customer> list(Long storeId) {
         return customerRepository.findByStoreIdOrderByNameAsc(storeId);
     }
-
     @Transactional(readOnly = true)
     public Customer get(Long storeId, Long customerId) {
         return customerRepository.findByIdAndStoreId(customerId, storeId)
                 .orElseThrow(() -> new NotFoundException("Customer not found: " + customerId));
     }
 
+    @Transactional
+    public Customer update(Long storeId, Long customerId, String name, String phoneNumber) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("name is required");
+        }
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            throw new IllegalArgumentException("mobile number is required");
+        }
+        Customer customer = get(storeId, customerId);
+        customer.setName(name.trim());
+        customer.setPhoneNumber(PhoneNumbers.toE164(phoneNumber));
+        return customerRepository.save(customer);
+    }
+
     @Transactional(readOnly = true)
     public Customer getByPayToken(String payToken) {
         return customerRepository.findByPayToken(payToken)
-                .orElseThrow(() -> new NotFoundException("Payment link not found"));
+                .orElseThrow(() -> new NotFoundException("Payment page not found"));
     }
 }

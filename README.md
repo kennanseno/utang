@@ -1,6 +1,6 @@
 # Utang
 
-Mobile-first web app for Philippine micro-businesses (sari-sari stores) to track customer debt ("utang"), record cash payments, send copyable reminder messages, and accept payments via PayMongo links.
+Mobile-first web app for Philippine micro-businesses (sari-sari stores) to track customer debt ("utang"), record cash payments, and send copyable reminder messages.
 
 MVP v1 — see [docs/PRD.md](docs/PRD.md) for the full product spec.
 
@@ -21,7 +21,6 @@ utang/
 | Frontend  | Next.js (App Router), TypeScript |
 | Backend   | Spring Boot 3 (Java 17), REST   |
 | Database  | PostgreSQL 16                   |
-| Payments  | PayMongo (adapter pattern)      |
 
 ## Quick start
 
@@ -45,8 +44,7 @@ npm run dev
 
 The API runs on `http://localhost:8080` and the app on `http://localhost:3000`.
 Data resets on each restart. Browse the dev DB at `http://localhost:8080/h2-console`
-(JDBC URL `jdbc:h2:mem:utang`, user `sa`, no password). PayMongo runs in mock mode
-until you set `PAYMONGO_SECRET_KEY`.
+(JDBC URL `jdbc:h2:mem:utang`, user `sa`, no password).
 
 ### Option B — PostgreSQL
 
@@ -85,9 +83,7 @@ With the backend running, interactive docs are served from the spec-first
 
 - **Customer** — a store's suki, has a running `current_balance`.
 - **LedgerEntry** — `DEBIT` (utang) increases balance, `CREDIT` (bayad) decreases it. Ledger is the source of truth.
-- **Payment** — `CASH` (manual credit) or `LINK` (PayMongo webhook credit). Idempotent via `UNIQUE(provider, provider_ref_id)`.
 - **ReminderLog** — max 1 manual reminder per customer per day.
-- **WebhookEvent** — idempotent via `UNIQUE(provider, external_event_id)`.
 
 ## Business rules
 
@@ -95,10 +91,10 @@ With the backend running, interactive docs are served from the spec-first
 balance = sum(debits) - sum(credits)
 ```
 
-Balance updates are atomic. Reminders are locked to once per customer per day. Payments and webhooks are idempotent.
+Balance updates are atomic. Reminders are locked to once per customer per day.
 
 ## Scope
 
-Built: OTP auth, customers, ledger, copy-reminder flow, PayMongo payment link, webhook credit.
+Built: OTP auth, customers, ledger, copy-reminder flow, cash payments, public pay page with the store's QR code and a "paid" notification to the owner.
 
-**Not built (out of scope):** auto-reminders, QR Ph, SMS API, customer login, editing/deleting ledger entries, dashboards/analytics, multiple PSPs, event queues.
+**Not built (out of scope):** auto-reminders, online payment gateways/PSPs, SMS API, customer login, editing/deleting ledger entries, dashboards/analytics, event queues.
