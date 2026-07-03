@@ -20,6 +20,16 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+# Swagger UI (spec-first). The UI renders the hand-written openapi.yaml.
+#   Swagger UI:  http://localhost:8080/swagger-ui.html
+#   Raw spec:    http://localhost:8080/openapi.yaml
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    url: /openapi.yaml
+    # Hide the auto-generated definition; only the spec-first doc is shown.
+    disable-swagger-default-url: true
+
 # Application-specific config
 utang:
   # Base URL used to build public payment links surfaced in reminder messages.

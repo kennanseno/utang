@@ -73,6 +73,14 @@ cd backend
 
 OpenAPI spec lives at [backend/src/main/resources/openapi/openapi.yaml](backend/src/main/resources/openapi/openapi.yaml).
 
+## API docs (Swagger UI)
+
+With the backend running, interactive docs are served from the spec-first
+`openapi.yaml`:
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Raw spec: `http://localhost:8080/openapi.yaml`
+
 ## Core domain
 
 - **Customer** — a store's suki, has a running `current_balance`.
