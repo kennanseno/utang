@@ -22,8 +22,6 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(CUSTOMER_PAGE_SIZE);
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<Customer | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
@@ -62,21 +60,6 @@ export default function DashboardPage() {
       setError((e as Error).message);
     } finally {
       setAdding(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!pendingDelete) return;
-    setDeleting(true);
-    setError(null);
-    try {
-      await api.deleteCustomer(pendingDelete.id);
-      setPendingDelete(null);
-      await load();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -132,28 +115,6 @@ export default function DashboardPage() {
             <button
               className="secondary"
               onClick={() => setConfirmLogout(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {pendingDelete && (
-        <div className="card">
-          <strong>Delete {pendingDelete.name}?</strong>
-          <p className="muted">
-            Buburahin nito ang suki at lahat ng utang at bayad nila. Hindi na
-            ito maibabalik.
-          </p>
-          <div className="row">
-            <button className="danger" onClick={handleDelete} disabled={deleting}>
-              {deleting ? "Binubura…" : "Oo, burahin"}
-            </button>
-            <button
-              className="secondary"
-              onClick={() => setPendingDelete(null)}
-              disabled={deleting}
             >
               Cancel
             </button>
@@ -241,48 +202,15 @@ export default function DashboardPage() {
       )}
       <div style={{ marginTop: 8 }}>
         {pagedCustomers.map((c) => (
-          <div
-            key={c.id}
-            className="list-item"
-            style={{ gap: 8, cursor: "default" }}
-          >
-            <Link
-              href={`/customers/${c.id}`}
-              style={{
-                display: "flex",
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-                textDecoration: "none",
-                color: "inherit",
-                minWidth: 0,
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div className="name">{c.name}</div>
-                {c.phoneNumber && <div className="muted">{c.phoneNumber}</div>}
-              </div>
-              <div className={`pill ${c.currentBalance > 0 ? "owed" : "clear"}`}>
-                {formatPeso(c.currentBalance)}
-              </div>
-            </Link>
-            <button
-              className="secondary"
-              aria-label={`Delete ${c.name}`}
-              title={`Delete ${c.name}`}
-              onClick={() => setPendingDelete(c)}
-              style={{
-                width: "auto",
-                padding: "8px 12px",
-                marginTop: 0,
-                color: "var(--danger)",
-                flexShrink: 0,
-              }}
-            >
-              Delete
-            </button>
-          </div>
+          <Link key={c.id} href={`/customers/${c.id}`} className="list-item">
+            <div>
+              <div className="name">{c.name}</div>
+              {c.phoneNumber && <div className="muted">{c.phoneNumber}</div>}
+            </div>
+            <div className={`pill ${c.currentBalance > 0 ? "owed" : "clear"}`}>
+              {formatPeso(c.currentBalance)}
+            </div>
+          </Link>
         ))}
       </div>
       {visibleCustomers.length > visibleCount && (

@@ -40,6 +40,9 @@ export default function CustomerPage() {
   const [confirmEdit, setConfirmEdit] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     if (!getToken()) {
       router.replace("/");
@@ -136,6 +139,19 @@ export default function CustomerPage() {
       setPhoneError((e as Error).message);
     } finally {
       setPhoneSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError(null);
+    try {
+      await api.deleteCustomer(customerId);
+      router.replace("/dashboard");
+    } catch (e) {
+      setError((e as Error).message);
+      setDeleting(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -397,6 +413,58 @@ export default function CustomerPage() {
           </button>
         )}
       </div>
+
+      <div className="card">
+        <strong>Delete suki</strong>
+        <p className="muted">
+          Removes {customer.name} and their entire utang history. This cannot be
+          undone.
+        </p>
+        <button className="danger" onClick={() => setConfirmDelete(true)}>
+          Delete suki
+        </button>
+      </div>
+
+      {confirmDelete && (
+        <div
+          className="modal-overlay"
+          onClick={() => !deleting && setConfirmDelete(false)}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete {customer.name}?</h2>
+            {owed ? (
+              <div className="notice" style={{ marginTop: 0 }}>
+                <strong>May natitirang utang pa ({formatPeso(customer.currentBalance)})</strong>
+                <p style={{ margin: "6px 0 0" }} className="muted">
+                  This suki still owes you money. Deleting them erases this
+                  balance and their whole ledger for good.
+                </p>
+              </div>
+            ) : (
+              <p className="muted">
+                This permanently removes the suki and their entire utang
+                history. This cannot be undone.
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <button
+                className="danger"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting\u2026" : "Yes, delete"}
+              </button>
+              <button
+                className="secondary"
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {notice && <p className="link center">{notice}</p>}
       {error && <p className="error">{error}</p>}
