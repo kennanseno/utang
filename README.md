@@ -66,6 +66,12 @@ balance = sum(debits) - sum(credits)
 
 Balance updates are atomic.
 
+## Database bootstrap (V1)
+
+Use the consolidated baseline schema at:
+
+`db/migration/V1__init.sql`
+
 ## Scope
 
 Built: username/password auth, store email capture for future communication, customers, ledger, copy-reminder flow, cash payments, public pay page with the store's QR code and a "paid" notification to the owner.
