@@ -33,11 +33,11 @@ export async function POST(req: NextRequest) {
       const customer = await client.query<CustomerRow>(
         `SELECT id, store_id, name, phone_number, current_balance, pay_token
          FROM customers
-         WHERE id = $1
+         WHERE id = $1 AND store_id = $2
          FOR UPDATE`,
-        [customerId]
+        [customerId, storeId]
       );
-      if (customer.rowCount === 0 || customer.rows[0].store_id !== storeId) {
+      if (customer.rowCount === 0) {
         notFound(`Customer not found: ${customerId}`);
       }
       await client.query(
