@@ -18,6 +18,7 @@ export default function PublicPayPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [qrType, setQrType] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
 
@@ -31,7 +32,12 @@ export default function PublicPayPage() {
         setHasMore(res.hasMore);
         if (res.storeHasQrCode) {
           fetchPublicQrCodeUrl(token)
-            .then(setQrUrl)
+            .then((qr) => {
+              if (qr) {
+                setQrUrl(qr.url);
+                setQrType(qr.type);
+              }
+            })
             .catch(() => {});
         }
       } catch (e) {
@@ -75,6 +81,11 @@ export default function PublicPayPage() {
   }
 
   const hasBalance = data.outstandingBalance > 0;
+  const qrExt = qrType === "image/jpeg" ? "jpg" : "png";
+  const qrSlug =
+    data.storeName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") ||
+    "store";
+  const qrFileName = `${qrSlug}-qr.${qrExt}`;
   const paidMessage = `Hi ${data.storeName}! Ako po si ${data.customerName}. Nakabayad na po ako sa aking utang${
     hasBalance ? ` na ${formatPeso(data.outstandingBalance)}` : ""
   }. Salamat po!`;
@@ -133,6 +144,11 @@ export default function PublicPayPage() {
               borderRadius: 12,
             }}
           />
+          <a href={qrUrl} download={qrFileName} style={{ display: "block" }}>
+            <button className="secondary" style={{ marginTop: 12 }}>
+              I-download ang QR code
+            </button>
+          </a>
         </div>
       )}
 

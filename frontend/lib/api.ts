@@ -261,15 +261,15 @@ export async function fetchQrCodeUrl(): Promise<string | null> {
 
 /**
  * Fetches a store's payment QR code for the public pay page (no auth). Returns
- * an object URL usable as an <img src>, or null when the store has none.
- * Callers should URL.revokeObjectURL the result when done.
+ * an object URL usable as an <img src> plus the image MIME type, or null when
+ * the store has none. Callers should URL.revokeObjectURL the url when done.
  */
 export async function fetchPublicQrCodeUrl(
   token: string
-): Promise<string | null> {
+): Promise<{ url: string; type: string } | null> {
   const res = await fetch(`${API_BASE_URL}/public/pay/${token}/qr`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Request failed (${res.status})`);
   const blob = await res.blob();
-  return URL.createObjectURL(blob);
+  return { url: URL.createObjectURL(blob), type: blob.type };
 }
