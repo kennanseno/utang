@@ -382,6 +382,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReminderPreviewResponse'
 
+  /public/stats:
+    get:
+      tags: [Public]
+      summary: Aggregate usage stats for the landing page (no auth)
+      responses:
+        '200':
+          description: Public usage stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicStatsResponse'
+
   /public/pay/{token}:
     get:
       tags: [Public]
@@ -710,6 +722,19 @@ components:
         createdAt:
           type: string
           format: date-time
+    PublicStatsResponse:
+      type: object
+      properties:
+        storeCount:
+          type: integer
+          format: int64
+        customerCount:
+          type: integer
+          format: int64
+        totalRecorded:
+          type: number
+        totalCollected:
+          type: number
     ErrorResponse:
       type: object
       properties:

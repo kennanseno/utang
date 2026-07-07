@@ -92,6 +92,13 @@ export interface PublicLedgerEntry {
   createdAt: string;
 }
 
+export interface PublicStats {
+  storeCount: number;
+  customerCount: number;
+  totalRecorded: number;
+  totalCollected: number;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -237,8 +244,9 @@ export const api = {
       {},
       false
     ),
-};
 
+  publicStats: () => request<PublicStats>("/public/stats", {}, false),
+};
 export function formatPeso(amount: number): string {
   return new Intl.NumberFormat("en-PH", {
     style: "currency",

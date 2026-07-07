@@ -133,4 +133,12 @@ public final class Dtos {
             String note,
             Instant createdAt) {
     }
+
+    /** Aggregate, non-identifying usage stats shown on the public landing page. */
+    public record PublicStatsResponse(
+            long storeCount,
+            long customerCount,
+            BigDecimal totalRecorded,
+            BigDecimal totalCollected) {
+    }
 }

@@ -1,11 +1,15 @@
 package com.utang.web;
 
 import com.utang.domain.Customer;
+import com.utang.domain.EntryType;
 import com.utang.domain.LedgerEntry;
 import com.utang.domain.Store;
 import com.utang.dto.Dtos.PublicLedgerEntry;
 import com.utang.dto.Dtos.PublicPayResponse;
+import com.utang.dto.Dtos.PublicStatsResponse;
 import com.utang.error.NotFoundException;
+import com.utang.repository.CustomerRepository;
+import com.utang.repository.LedgerEntryRepository;
 import com.utang.repository.StoreRepository;
 import com.utang.service.CustomerService;
 import com.utang.service.LedgerService;
@@ -28,13 +32,29 @@ public class PublicController {
     private final CustomerService customerService;
     private final StoreRepository storeRepository;
     private final LedgerService ledgerService;
+    private final CustomerRepository customerRepository;
+    private final LedgerEntryRepository ledgerEntryRepository;
 
     public PublicController(CustomerService customerService,
                             StoreRepository storeRepository,
-                            LedgerService ledgerService) {
+                            LedgerService ledgerService,
+                            CustomerRepository customerRepository,
+                            LedgerEntryRepository ledgerEntryRepository) {
         this.customerService = customerService;
         this.storeRepository = storeRepository;
         this.ledgerService = ledgerService;
+        this.customerRepository = customerRepository;
+        this.ledgerEntryRepository = ledgerEntryRepository;
+    }
+
+    /** Aggregate usage stats for the landing page. No authentication and no PII. */
+    @GetMapping("/public/stats")
+    public PublicStatsResponse stats() {
+        return new PublicStatsResponse(
+                storeRepository.count(),
+                customerRepository.count(),
+                ledgerEntryRepository.sumAmountByType(EntryType.DEBIT),
+                ledgerEntryRepository.sumAmountByType(EntryType.CREDIT));
     }
 
     @GetMapping("/public/pay/{token}")
