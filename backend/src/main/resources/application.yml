@@ -44,6 +44,11 @@ utang:
     ttl-minutes: ${OTP_TTL_MINUTES:5}
     resend-cooldown-seconds: ${OTP_RESEND_COOLDOWN_SECONDS:60}
     max-per-hour: ${OTP_MAX_PER_HOUR:5}
+  rate-limit:
+    # Per-IP fixed-window throttle on unauthenticated endpoints (/public/**, /auth/**).
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    public-per-window: ${RATE_LIMIT_PER_WINDOW:60}
+    window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}
   resend:
     # Resend transactional email (account verification codes). Leave the API key
     # blank to log codes to the console instead of delivering them (no external calls).

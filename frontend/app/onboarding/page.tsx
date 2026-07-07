@@ -317,7 +317,7 @@ export default function RegisterPage() {
 
         <p className="muted center" style={{ marginTop: 16 }}>
           May account ka na?{" "}
-          <Link className="link" href="/">
+          <Link className="link" href="/#login">
             Log in
           </Link>
         </p>

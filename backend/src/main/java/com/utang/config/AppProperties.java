@@ -11,6 +11,9 @@ public class AppProperties {
     /** OTP generation and rate-limit settings. */
     private final Otp otp = new Otp();
 
+    /** IP-based throttling for unauthenticated endpoints. */
+    private final RateLimit rateLimit = new RateLimit();
+
     public String getPublicBaseUrl() {
         return publicBaseUrl;
     }
@@ -21,6 +24,10 @@ public class AppProperties {
 
     public Otp getOtp() {
         return otp;
+    }
+
+    public RateLimit getRateLimit() {
+        return rateLimit;
     }
 
     /** Settings for phone OTP: lifetime and per-number request throttling. */
@@ -57,6 +64,46 @@ public class AppProperties {
 
         public void setMaxPerHour(int maxPerHour) {
             this.maxPerHour = maxPerHour;
+        }
+    }
+
+    /**
+     * Fixed-window, per-IP rate limit applied to unauthenticated endpoints
+     * ({@code /public/**} and {@code /auth/**}) to blunt scraping and brute force.
+     */
+    public static class RateLimit {
+
+        /** Master switch; disable in tests that need unthrottled HTTP access. */
+        private boolean enabled = true;
+
+        /** Max requests allowed per client IP within a single window. */
+        private int publicPerWindow = 60;
+
+        /** Length of the fixed window, in seconds. */
+        private long windowSeconds = 60;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getPublicPerWindow() {
+            return publicPerWindow;
+        }
+
+        public void setPublicPerWindow(int publicPerWindow) {
+            this.publicPerWindow = publicPerWindow;
+        }
+
+        public long getWindowSeconds() {
+            return windowSeconds;
+        }
+
+        public void setWindowSeconds(long windowSeconds) {
+            this.windowSeconds = windowSeconds;
         }
     }
 }
