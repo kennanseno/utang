@@ -53,7 +53,7 @@ public class LedgerController {
     @GetMapping("/customers/{id}/ledger")
     public LedgerResponse ledger(@CurrentStore Store store, @PathVariable Long id,
                                  @RequestParam(defaultValue = "0") int page,
-                                 @RequestParam(defaultValue = "20") int size) {
+                                 @RequestParam(defaultValue = "10") int size) {
         Customer customer = customerService.get(store.getId(), id);
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), 100);

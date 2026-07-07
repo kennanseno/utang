@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { api, fetchPublicQrCodeUrl, formatPeso, PublicLedgerEntry, PublicPay } from "@/lib/api";
 import { Logo } from "../../Logo";
 
-const HISTORY_PAGE_SIZE = 20;
+const HISTORY_PAGE_SIZE = 10;
 
 export default function PublicPayPage() {
   const params = useParams<{ token: string }>();

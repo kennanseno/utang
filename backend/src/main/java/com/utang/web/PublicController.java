@@ -40,7 +40,7 @@ public class PublicController {
     @GetMapping("/public/pay/{token}")
     public PublicPayResponse pay(@PathVariable String token,
                                  @RequestParam(defaultValue = "0") int page,
-                                 @RequestParam(defaultValue = "20") int size) {
+                                 @RequestParam(defaultValue = "10") int size) {
         Customer customer = customerService.getByPayToken(token);
         Store store = storeRepository.findById(customer.getStoreId())
                 .orElseThrow(() -> new NotFoundException("Store not found"));

@@ -11,7 +11,7 @@ import {
   LedgerEntry,
 } from "@/lib/api";
 
-const LEDGER_PAGE_SIZE = 20;
+const LEDGER_PAGE_SIZE = 10;
 
 export default function CustomerPage() {
   const router = useRouter();

@@ -220,7 +220,7 @@ export const api = {
       body: JSON.stringify({ customerId, amount, note: note || null }),
     }),
 
-  getLedger: (customerId: number, page = 0, size = 20) =>
+  getLedger: (customerId: number, page = 0, size = 10) =>
     request<Ledger>(
       `/customers/${customerId}/ledger?page=${page}&size=${size}`
     ),
@@ -228,7 +228,7 @@ export const api = {
   reminderPreview: (customerId: number) =>
     request<ReminderPreview>(`/customers/${customerId}/reminder-preview`),
 
-  publicPay: (token: string, page = 0, size = 20) =>
+  publicPay: (token: string, page = 0, size = 10) =>
     request<PublicPay>(
       `/public/pay/${token}?page=${page}&size=${size}`,
       {},
