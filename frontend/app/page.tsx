@@ -198,6 +198,20 @@ export default function LandingPage() {
 
         {error && <p className="error">{error}</p>}
       </div>
+
+      <footer className="landing-footer">
+        <p className="muted center" style={{ margin: 0 }}>
+          May tanong, isyu, o suhestiyon?{" "}
+          <a
+            className="link"
+            href="https://github.com/kennanseno/utang/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Contact us
+          </a>
+        </p>
+      </footer>
     </>
   );
 }
