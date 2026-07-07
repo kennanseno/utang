@@ -8,8 +8,8 @@ MVP v1 — see [docs/PRD.md](docs/PRD.md) for the full product spec.
 
 ```
 utang/
-├── frontend/   # Next.js (App Router) — mobile-first UI
-├── backend/    # Spring Boot (Java) — REST API, OpenAPI-first
+├── app/        # Next.js (App Router) pages and API routes
+├── lib/        # shared frontend/server modules
 ├── docs/       # PRD & specs
 └── docker-compose.yml  # local PostgreSQL
 ```
@@ -19,71 +19,44 @@ utang/
 | Layer     | Choice                          |
 |-----------|---------------------------------|
 | Frontend  | Next.js (App Router), TypeScript |
-| Backend   | Spring Boot 3 (Java 17), REST   |
+| Backend   | Next.js API routes (Node.js runtime) |
 | Database  | PostgreSQL 16                   |
 
 ## Quick start
 
-### Option A — No Docker, no Postgres (fastest)
+### Option A — Single app (Next.js full-stack)
 
-Run the backend on an in-memory H2 database using the `dev` profile:
+Run only the Next.js app at repository root; it serves both UI and API routes under `/api`.
 
 ```bash
-cd backend
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+cp .env.local.example .env.local
+# Ensure DB_URL or DATABASE_URL points to your Postgres instance.
+npm install
+npm run dev
 ```
 
-Then start the frontend:
+By default the API client calls `/api/*` in the same app.
+
+### Option B — PostgreSQL via Docker
+
+Start Postgres with Docker:
 
 ```bash
-cd frontend
+docker compose up -d
+```
+
+Then run the app:
+
+```bash
 cp .env.local.example .env.local
 npm install
 npm run dev
 ```
 
-The API runs on `http://localhost:8080` and the app on `http://localhost:3000`.
-Data resets on each restart. Browse the dev DB at `http://localhost:8080/h2-console`
-(JDBC URL `jdbc:h2:mem:utang`, user `sa`, no password).
-
-### Option B — PostgreSQL
-
-Use a real Postgres (Flyway migrations run on startup). Start it either with Docker
-or a local install:
-
-```bash
-# With Docker:
-docker compose up -d
-
-# Or Homebrew (no Docker):
-brew install postgresql@16
-brew services start postgresql@16
-createuser -s utang 2>/dev/null; createdb -O utang utang
-psql -d utang -c "ALTER USER utang WITH PASSWORD 'utang';"
-```
-
-Then run the backend (default profile connects to Postgres on `localhost:5432`):
-
-```bash
-cd backend
-./mvnw spring-boot:run
-```
-
-OpenAPI spec lives at [backend/src/main/resources/openapi/openapi.yaml](backend/src/main/resources/openapi/openapi.yaml).
-
-## API docs (Swagger UI)
-
-With the backend running, interactive docs are served from the spec-first
-`openapi.yaml`:
-
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- Raw spec: `http://localhost:8080/openapi.yaml`
-
 ## Core domain
 
 - **Customer** — a store's suki, has a running `current_balance`.
 - **LedgerEntry** — `DEBIT` (utang) increases balance, `CREDIT` (bayad) decreases it. Ledger is the source of truth.
-- **ReminderLog** — max 1 manual reminder per customer per day.
 
 ## Business rules
 
@@ -91,10 +64,12 @@ With the backend running, interactive docs are served from the spec-first
 balance = sum(debits) - sum(credits)
 ```
 
-Balance updates are atomic. Reminders are locked to once per customer per day.
+Balance updates are atomic.
 
 ## Scope
 
-Built: OTP auth, customers, ledger, copy-reminder flow, cash payments, public pay page with the store's QR code and a "paid" notification to the owner.
+Built: username/password auth, store email capture for future communication, customers, ledger, copy-reminder flow, cash payments, public pay page with the store's QR code and a "paid" notification to the owner.
 
 **Not built (out of scope):** auto-reminders, online payment gateways/PSPs, SMS API, customer login, editing/deleting ledger entries, dashboards/analytics, event queues.
+
+The repo sets npm to verbose logging by default via `.npmrc`.
