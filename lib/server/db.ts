@@ -5,6 +5,11 @@ const connectionString =
   process.env.DATABASE_URL ??
   "postgresql://utang:utang@localhost:5432/utang";
 
+// Enable SSL for hosted providers (e.g. Supabase). Local Postgres over
+// localhost/127.0.0.1 does not require SSL.
+const isLocalConnection = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString);
+const ssl = isLocalConnection ? undefined : { rejectUnauthorized: false };
+
 const globalPool = globalThis as typeof globalThis & {
   __utangPool?: Pool;
 };
@@ -13,6 +18,7 @@ const pool =
   globalPool.__utangPool ??
   new Pool({
     connectionString,
+    ssl,
   });
 
 if (!globalPool.__utangPool) {
