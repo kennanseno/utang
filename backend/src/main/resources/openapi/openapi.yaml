@@ -278,6 +278,18 @@ paths:
                 $ref: '#/components/schemas/CustomerResponse'
         '404':
           $ref: '#/components/responses/Error'
+    delete:
+      tags: [Customers]
+      summary: Delete a customer and all their ledger entries
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/Error'
 
   /ledger/debit:
     post:

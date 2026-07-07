@@ -208,6 +208,9 @@ export const api = {
       body: JSON.stringify({ name, phoneNumber }),
     }),
 
+  deleteCustomer: (id: number) =>
+    request<void>(`/customers/${id}`, { method: "DELETE" }),
+
   debit: (customerId: number, amount: number, note?: string) =>
     request<Customer>("/ledger/debit", {
       method: "POST",

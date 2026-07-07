@@ -3,6 +3,7 @@ package com.utang.service;
 import com.utang.domain.Customer;
 import com.utang.error.NotFoundException;
 import com.utang.repository.CustomerRepository;
+import com.utang.repository.LedgerEntryRepository;
 import com.utang.support.PhoneNumbers;
 import java.util.List;
 import java.util.UUID;
@@ -13,9 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final LedgerEntryRepository ledgerRepository;
 
-    public CustomerService(CustomerRepository customerRepository) {
+    public CustomerService(CustomerRepository customerRepository,
+                           LedgerEntryRepository ledgerRepository) {
         this.customerRepository = customerRepository;
+        this.ledgerRepository = ledgerRepository;
     }
 
     @Transactional
@@ -53,6 +57,13 @@ public class CustomerService {
         customer.setName(name.trim());
         customer.setPhoneNumber(PhoneNumbers.toE164(phoneNumber));
         return customerRepository.save(customer);
+    }
+
+    @Transactional
+    public void delete(Long storeId, Long customerId) {
+        Customer customer = get(storeId, customerId);
+        ledgerRepository.deleteByCustomerId(customer.getId());
+        customerRepository.delete(customer);
     }
 
     @Transactional(readOnly = true)

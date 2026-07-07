@@ -11,4 +11,6 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> 
     List<LedgerEntry> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
     Page<LedgerEntry> findByCustomerIdOrderByCreatedAtDesc(Long customerId, Pageable pageable);
+
+    void deleteByCustomerId(Long customerId);
 }
