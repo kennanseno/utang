@@ -29,8 +29,8 @@ debt ("utang") and collect payments via SMS-copyable reminders.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/auth/request-otp` | Request OTP for a phone number |
-| POST | `/auth/verify-otp` | Verify OTP, create account, return token |
+| POST | `/auth/register` | Register with username, password, email, phone, and store details |
+| POST | `/auth/login` | Log in with username and password |
 | GET  | `/me` | Current store/user |
 | POST | `/customers` | Add customer (name required) |
 | GET  | `/customers` | List customers |
@@ -39,9 +39,7 @@ debt ("utang") and collect payments via SMS-copyable reminders.
 | POST | `/ledger/credit` | Record payment/credit |
 | GET  | `/customers/{id}/ledger` | Ledger history |
 | GET  | `/customers/{id}/reminder-preview` | Preview reminder message |
-| POST | `/customers/{id}/remind` | Log reminder (once/day) |
 | GET  | `/public/pay/{token}` | Public pay page data (balance + store QR) |
-| POST | `/public/pay/{token}/notify-paid` | Customer texts owner they've paid |
 
 ## Reminder message format
 
@@ -63,5 +61,5 @@ ledger entries · Dashboards/analytics · Complex retry queues.
 
 ## Acceptance criteria
 
-A user can: sign up via OTP · add a customer · add utang · record cash payment · see correct
-balance · copy reminder message · share the public pay page (store QR) · get notified when a customer says they paid.
+A user can: sign up with username/password and contact details · add a customer · add utang · record cash payment · see correct
+balance · copy reminder message · share the public pay page (store QR).
