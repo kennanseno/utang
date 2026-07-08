@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://palautang.vercel.app"
+  ),
   title: "Utang — Track & Collect",
   description:
     "Track utang and get paid faster—without awkward conversations.",
