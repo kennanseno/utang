@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, formatPeso, setToken, PublicStats } from "@/lib/api";
+import { api, formatPeso, getToken, setToken, PublicStats } from "@/lib/api";
 import { Logo } from "./Logo";
 
 const FEATURES = [
@@ -47,8 +47,19 @@ export default function LandingPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const [stats, setStats] = useState<PublicStats | null>(null);
+
+  useEffect(() => {
+    // Check if user is already authenticated
+    const token = getToken();
+    if (token) {
+      router.push("/dashboard");
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [router]);
 
   useEffect(() => {
     let active = true;
@@ -85,6 +96,10 @@ export default function LandingPage() {
   }
 
   const count = (n: number) => n.toLocaleString("en-PH");
+
+  if (isCheckingAuth) {
+    return null;
+  }
 
   return (
     <>
