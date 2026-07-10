@@ -41,7 +41,9 @@ export async function GET(
       [token]
     );
     if (base.rowCount === 0) {
-      notFound("Payment page not found");
+      notFound(
+        "Payment page not found. The link may be invalid, expired, or the customer record no longer exists."
+      );
     }
     const row = base.rows[0];
 

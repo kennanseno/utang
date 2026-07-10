@@ -73,11 +73,63 @@ export default function PublicPayPage() {
   }, [qrUrl]);
 
   if (loading) {
-    return <p className="muted center">Loading…</p>;
+    return (
+      <>
+        <div className="topbar">
+          <h1>
+            <span className="brand-lockup">
+              <Logo />
+              <span className="brand">Utang</span>
+            </span>
+          </h1>
+        </div>
+        <p className="muted center">Loading…</p>
+      </>
+    );
   }
 
   if (error || !data) {
-    return <p className="error center">{error ?? "Payment page not found."}</p>;
+    return (
+      <>
+        <div className="topbar">
+          <h1>
+            <span className="brand-lockup">
+              <Logo />
+              <span className="brand">Utang</span>
+            </span>
+          </h1>
+        </div>
+
+        <div className="card center" style={{ padding: "32px 20px" }}>
+          <div style={{ fontSize: 48, lineHeight: 1 }} aria-hidden="true">
+            🔗💔
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 800, margin: "16px 0 8px" }}>
+            Hindi mahanap ang payment page
+          </div>
+          <p className="muted" style={{ maxWidth: "34ch", margin: "0 auto" }}>
+            {error ??
+              "Baka mali o expired na ang link. Paki-check ulit sa tindera para sa tamang link."}
+          </p>
+
+          <button
+            className="secondary"
+            style={{ marginTop: 20 }}
+            onClick={() => window.location.reload()}
+          >
+            Subukan ulit
+          </button>
+        </div>
+
+        <div className="notice">
+          <strong>Ano ang gagawin?</strong>
+          <p className="muted" style={{ marginTop: 6 }}>
+            Humingi ng bagong link sa tindera, o siguraduhing kinopya mo nang
+            buo ang link na ipinadala nila.
+          </p>
+        </div>
+      </>
+    );
   }
 
   const hasBalance = data.outstandingBalance > 0;
