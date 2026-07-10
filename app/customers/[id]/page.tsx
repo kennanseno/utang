@@ -123,7 +123,7 @@ export default function CustomerPage() {
   }
 
   async function savePhone() {
-    if (!nameInput.trim() || !phoneInput.trim()) return;
+    if (!nameInput.trim()) return;
     setConfirmEdit(false);
     setPhoneSaving(true);
     setPhoneError(null);
@@ -131,7 +131,7 @@ export default function CustomerPage() {
       const updated = await api.updateCustomer(
         customerId,
         nameInput.trim(),
-        phoneInput.trim()
+        phoneInput.trim() || undefined
       );
       setCustomer(updated);
       setEditingPhone(false);
@@ -228,7 +228,7 @@ export default function CustomerPage() {
               id="editphone"
               type="tel"
               inputMode="tel"
-              placeholder="09XX XXX XXXX"
+              placeholder="09XX XXX XXXX (optional)"
               value={phoneInput}
               onChange={(e) => {
                 setPhoneInput(e.target.value);
@@ -257,10 +257,10 @@ export default function CustomerPage() {
               <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                 <button
                   onClick={() => {
-                    if (!nameInput.trim() || !phoneInput.trim()) return;
+                    if (!nameInput.trim()) return;
                     setConfirmEdit(true);
                   }}
-                  disabled={phoneSaving || !nameInput.trim() || !phoneInput.trim()}
+                  disabled={phoneSaving || !nameInput.trim()}
                 >
                   Save changes
                 </button>
@@ -294,7 +294,9 @@ export default function CustomerPage() {
                 Edit
               </a>
             </div>
-            <div className="muted">{customer.phoneNumber}</div>
+            <div className="muted">
+              {customer.phoneNumber ?? "No mobile number added"}
+            </div>
           </>
         )}
         <div className="muted" style={{ marginTop: 12 }}>
@@ -363,13 +365,29 @@ export default function CustomerPage() {
             onChange={(e) => setReminderMsg(e.target.value)}
           />
           {customer.phoneNumber ? (
-            <button onClick={textViaSms}>
-              Text via SMS
-            </button>
+            <button onClick={textViaSms}>Text via SMS</button>
           ) : (
-            <p className="muted">
-              Add a mobile number for this suki to text them directly.
-            </p>
+            <div className="notice" style={{ marginTop: 0 }}>
+              <p style={{ margin: 0 }}>
+                <strong>Text via SMS is disabled</strong> — this suki has no
+                mobile number on file.
+              </p>
+              <p style={{ margin: "6px 0 0" }} className="muted">
+                Copy the message below instead, or{" "}
+                <a
+                  className="link"
+                  style={{ cursor: "pointer" }}
+                  title="Add a mobile number to enable direct SMS texting"
+                  onClick={() => {
+                    setReminderOpen(false);
+                    startEditPhone();
+                  }}
+                >
+                  add a mobile number
+                </a>{" "}
+                to enable direct texting next time.
+              </p>
+            </div>
           )}
           <button className="secondary" onClick={copyReminder}>
             Copy message

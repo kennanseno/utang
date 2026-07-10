@@ -46,11 +46,11 @@ export default function DashboardPage() {
   }
 
   async function handleAdd() {
-    if (!name.trim() || !phone.trim()) return;
+    if (!name.trim()) return;
     setAdding(true);
     setError(null);
     try {
-      await api.createCustomer(name.trim(), phone.trim());
+      await api.createCustomer(name.trim(), phone.trim() || undefined);
       setName("");
       setPhone("");
       await load();
@@ -154,11 +154,15 @@ export default function DashboardPage() {
           id="cphone"
           type="tel"
           inputMode="tel"
-          placeholder="09XX XXX XXXX (required)"
+          placeholder="09XX XXX XXXX (optional)"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
-        <button onClick={handleAdd} disabled={adding || !name.trim() || !phone.trim()}>
+        <p className="muted" style={{ marginTop: -4, marginBottom: 8 }}>
+          Add a mobile number to text reminders directly. Without one, you can
+          still copy the reminder message.
+        </p>
+        <button onClick={handleAdd} disabled={adding || !name.trim()}>
           {adding ? "Adding…" : "Add suki"}
         </button>
       </div>

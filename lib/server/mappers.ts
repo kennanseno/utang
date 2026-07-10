@@ -12,7 +12,7 @@ type StoreRow = {
 type CustomerRow = {
   id: number;
   name: string;
-  phone_number: string;
+  phone_number: string | null;
   current_balance: string | number;
   pay_token: string;
 };

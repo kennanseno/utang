@@ -3,13 +3,13 @@ import { requireStoreId } from "@/lib/server/auth";
 import { query } from "@/lib/server/db";
 import { jsonError, notFound } from "@/lib/server/errors";
 import { toCustomerResponse } from "@/lib/server/mappers";
-import { toE164 } from "@/lib/server/phone";
+import { toE164OrNull } from "@/lib/server/phone";
 import { normalizeCustomerName } from "@/lib/server/validation";
 
 type CustomerRow = {
   id: number;
   name: string;
-  phone_number: string;
+  phone_number: string | null;
   current_balance: string | number;
   pay_token: string;
 };
@@ -42,7 +42,7 @@ export async function PUT(
 
     const body = await req.json();
     const name = normalizeCustomerName(body.name);
-    const phoneNumber = toE164(body.phoneNumber);
+    const phoneNumber = toE164OrNull(body.phoneNumber);
     const updated = await query<CustomerRow>(
       `UPDATE customers
        SET name = $1, phone_number = $2

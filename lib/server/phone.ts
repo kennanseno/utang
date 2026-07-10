@@ -1,5 +1,16 @@
 import { badRequest } from "./errors";
 
+/**
+ * Parses an optional phone number. Returns null when the input is missing or
+ * blank (customers may be added without a mobile number), otherwise validates
+ * and normalizes it to E.164 the same way as `toE164`.
+ */
+export function toE164OrNull(input: unknown): string | null {
+  if (input == null) return null;
+  if (typeof input !== "string" || !input.trim()) return null;
+  return toE164(input);
+}
+
 export function toE164(input: string): string {
   if (!input || !input.trim()) {
     badRequest("phoneNumber is required");

@@ -186,16 +186,16 @@ export const api = {
 
   getCustomer: (id: number) => request<Customer>(`/customers/${id}`),
 
-  createCustomer: (name: string, phoneNumber: string) =>
+  createCustomer: (name: string, phoneNumber?: string) =>
     request<Customer>("/customers", {
       method: "POST",
-      body: JSON.stringify({ name, phoneNumber }),
+      body: JSON.stringify({ name, phoneNumber: phoneNumber || null }),
     }),
 
-  updateCustomer: (id: number, name: string, phoneNumber: string) =>
+  updateCustomer: (id: number, name: string, phoneNumber?: string) =>
     request<Customer>(`/customers/${id}`, {
       method: "PUT",
-      body: JSON.stringify({ name, phoneNumber }),
+      body: JSON.stringify({ name, phoneNumber: phoneNumber || null }),
     }),
 
   deleteCustomer: (id: number) =>

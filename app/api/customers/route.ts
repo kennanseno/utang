@@ -3,13 +3,13 @@ import { newPayToken, requireStoreId } from "@/lib/server/auth";
 import { query } from "@/lib/server/db";
 import { jsonError } from "@/lib/server/errors";
 import { toCustomerResponse } from "@/lib/server/mappers";
-import { toE164 } from "@/lib/server/phone";
+import { toE164OrNull } from "@/lib/server/phone";
 import { normalizeCustomerName } from "@/lib/server/validation";
 
 type CustomerRow = {
   id: number;
   name: string;
-  phone_number: string;
+  phone_number: string | null;
   current_balance: string | number;
   pay_token: string;
 };
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const storeId = await requireStoreId(req);
     const body = await req.json();
     const name = normalizeCustomerName(body.name);
-    const phoneNumber = toE164(body.phoneNumber);
+    const phoneNumber = toE164OrNull(body.phoneNumber);
 
     const inserted = await query<CustomerRow>(
       `INSERT INTO customers (store_id, name, phone_number, pay_token)
