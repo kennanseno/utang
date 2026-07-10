@@ -158,7 +158,7 @@ export default function DashboardPage() {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
-        <p className="muted" style={{ marginTop: -4, marginBottom: 8 }}>
+        <p className="muted" style={{ marginTop: 6 }}>
           Add a mobile number to text reminders directly. Without one, you can
           still copy the reminder message.
         </p>

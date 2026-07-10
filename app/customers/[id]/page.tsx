@@ -367,12 +367,12 @@ export default function CustomerPage() {
           {customer.phoneNumber ? (
             <button onClick={textViaSms}>Text via SMS</button>
           ) : (
-            <div className="notice" style={{ marginTop: 0 }}>
+            <div className="notice">
               <p style={{ margin: 0 }}>
                 <strong>Text via SMS is disabled</strong> — this suki has no
                 mobile number on file.
               </p>
-              <p style={{ margin: "6px 0 0" }} className="muted">
+              <p style={{ margin: "8px 0 0" }} className="muted">
                 Copy the message below instead, or{" "}
                 <a
                   className="link"
